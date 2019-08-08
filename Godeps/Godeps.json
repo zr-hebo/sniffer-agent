@@ -1,0 +1,93 @@
+{
+	"ImportPath": "github.com/zr-hebo/sniffer-agent",
+	"GoVersion": "go1.12",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Shopify/sarama",
+			"Comment": "v1.14.0-20-gcd645bf",
+			"Rev": "cd645bfba7622e7de8971388543ff97ee026aad4"
+		},
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Comment": "v1.1.0-9-gecdeabc",
+			"Rev": "ecdeabc65495df2dec95d7c4a4c3e021903035e5"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-resiliency/breaker",
+			"Comment": "v1.0.0-6-gb1fe83b",
+			"Rev": "b1fe83b5b03f624450823b751b662259ffc6af70"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-xerial-snappy",
+			"Rev": "bb955e01b9346ac19dc29eb16586c90ded99a98c"
+		},
+		{
+			"ImportPath": "github.com/eapache/queue",
+			"Comment": "v1.1.0",
+			"Rev": "44cc805cf13205b55f69e14bcb69867d1ae92f98"
+		},
+		{
+			"ImportPath": "github.com/go-sql-driver/mysql",
+			"Comment": "v1.3-42-gfade210",
+			"Rev": "fade21009797158e7b79e04c340118a9220c6f9e"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "553a641470496b2327abcac10b36396bd98e45c9"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket",
+			"Comment": "v1.1.17-26-gce2e696",
+			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/layers",
+			"Comment": "v1.1.17-26-gce2e696",
+			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
+		},
+		{
+			"ImportPath": "github.com/google/gopacket/pcap",
+			"Comment": "v1.1.17-26-gce2e696",
+			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
+		},
+		{
+			"ImportPath": "github.com/pierrec/lz4",
+			"Comment": "v1.0.1",
+			"Rev": "08c27939df1bd95e881e2c2367a749964ad1fceb"
+		},
+		{
+			"ImportPath": "github.com/pierrec/xxHash/xxHash32",
+			"Comment": "v0.1-11-ga0006b1",
+			"Rev": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6"
+		},
+		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "e181e095bae94582363434144c61a9653aff6e50"
+		},
+		{
+			"ImportPath": "github.com/sirupsen/logrus",
+			"Comment": "v1.0.4",
+			"Rev": "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
+		},
+		{
+			"ImportPath": "github.com/zr-hebo/util-db",
+			"Rev": "3ff29f916f7b712b3adc53c4b9b19b13b8bbed87"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/ssh/terminal",
+			"Rev": "eb71ad9bd329b5ac0fd0148dd99bd62e8be8e035"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/windows",
+			"Rev": "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
+		}
+	]
+}
