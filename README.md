@@ -1,16 +1,16 @@
-### sniffer-agent
+# Sniffer-Agent
 
 > Sniffer TCP package, parsed with mysql protocol, optional you can just print on screen or send query info to Kafka.
 > 抓取tcp包解析出mysql语句，将查询信息打印在屏幕上或者发送到Kafka
 
-## Architecture
+### Architecture
 
 架构设计：
 
 本项目采用模块化设计，主要分为四大模块：抓包模块，协议解析模块，输出模块，心跳模块
 ![架构设计图](https://github.com/zr-hebo/sniffer-agent/blob/master/images/arch.png)
 
-## Parse Protocol
+### Parse Protocol
 
 sniffer-agent采用模块化结构，支持用户添加自己的解析模块，只要实现了统一的接口即可
 - [x] MySQL
@@ -21,16 +21,16 @@ sniffer-agent采用模块化结构，支持用户添加自己的解析模块，�
 目前输出的内容都是解析结果组成的json。
 MySQL协议的解析结果示例如下：
 ```
-{"sid":"10.XX.XX.XX:54656","sip":"192.168.XX.XX","sport":3306,"user":"root","db":"unibase","sql":"show tables","bt":"2019-08-05 18:23:09","cms":15}
+{"sid":"10.XX.XX.XX:54656","sip":"192.168.XX.XX","sport":3306,"user":"root","db":"sniffer","sql":"show tables","bt":"2019-08-05 18:23:09","cms":15}
 ```
 其中sid代表客户端ip：port组成的session标识，sip代表server ip，sport代表server port，user代表查询用户，db代表当前连接的库名，sql代表查询语句，bt代表查询开始时间，cms代表查询消耗的时间，单位是毫秒
 
-## Exporter
+### Exporter
 
 输出模块主要负责，将解析的结果对外输出。默认情况下输出到命令行，可以通过指定export_type参数选择kafka，这时候会直接将解析结果发送到kafka。
 同样只要实现了export接口，用户可以自定义自己的输出方式。
 
-## Install:
+### Install:
 
 环境：
 
@@ -54,7 +54,7 @@ apt-get install libpcap-dev
 ```
 2.执行编译命令 go build
 
-## Demo
+### Demo
 
 目前只支持MySQL协议的抓取，需要将编译后的二进制文件上传到MySQL服务器上
 1.最简单的使用
@@ -85,6 +85,6 @@ apt-get install libpcap-dev
 另外mysql-sniffer使用c++开发，平台的适用性较差，后期扩展较难。
 开发的过程中也借鉴了这些产品的思想，另外在MySQL包解析的时候，参考了一些 [TiDB](https://github.com/pingcap/tidb) 的内容，部分私有变量和函数直接复制使用，这里向这些优秀的产品致敬，如有侵权请随时联系。
 
-## License
+### License
 [MIT](https://opensource.org/licenses/MIT)
 
