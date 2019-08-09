@@ -55,6 +55,11 @@
 			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
 		},
 		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.4.0-15-gbb285ea",
+			"Rev": "bb285ea687c5c77bb6935fdb2402b121d8efcbec"
+		},
+		{
 			"ImportPath": "github.com/pierrec/lz4",
 			"Comment": "v1.0.1",
 			"Rev": "08c27939df1bd95e881e2c2367a749964ad1fceb"
@@ -76,6 +81,11 @@
 		{
 			"ImportPath": "github.com/zr-hebo/util-db",
 			"Rev": "3ff29f916f7b712b3adc53c4b9b19b13b8bbed87"
+		},
+		{
+			"ImportPath": "github.com/zr-hebo/util-http",
+			"Comment": "1.0-2-ga096ffc",
+			"Rev": "a096ffc9ada929bb7d920224cad058207d95054b"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",
