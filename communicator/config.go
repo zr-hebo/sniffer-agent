@@ -3,6 +3,7 @@ package communicator
 import (
 	"flag"
 	"net/http"
+	"strconv"
 	"time"
 
 	_ "net/http/pprof"
@@ -19,7 +20,7 @@ func init()  {
 
 func Server()  {
 	server := &http.Server{
-		Addr:        ":" + string(communicatePort),
+		Addr:        ":" + strconv.Itoa(communicatePort),
 		Handler:     mux.NewRouter(),
 		IdleTimeout: time.Second * 5,
 	}
