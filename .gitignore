@@ -3,4 +3,4 @@
 *.swp
 one_key.sh
 sniffer-agent
-vendor/
+vendor/github.com
