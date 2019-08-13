@@ -6,17 +6,17 @@ import (
 )
 
 var (
-	localIPAddr string
+	localIPAddr *string
 
 	sessionPool = make(map[string]sd.ConnSession)
 )
 
 func init() {
-	var err error
-	localIPAddr, err = getLocalIPAddr()
+	ipAddr, err := getLocalIPAddr()
 	if err != nil {
 		panic(err)
 	}
 
-	log.Infof("parsed local ip address:%s", localIPAddr)
+	localIPAddr = &ipAddr
+	log.Infof("parsed local ip address:%s", *localIPAddr)
 }

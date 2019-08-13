@@ -3,16 +3,14 @@ package exporter
 import (
 	"flag"
 	"fmt"
-	"regexp"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/Shopify/sarama"
+	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/model"
 )
 
 var (
-	ddlPatern = regexp.MustCompile(`(?i)^\s*(create|alter|drop)`)
 	kafkaServer string
 	kafkaGroupID string
 	asyncTopic string
@@ -92,12 +90,18 @@ func NewKafkaExporter() (ke *kafkaExporter) {
 }
 
 func (ke *kafkaExporter) Export (qp model.QueryPiece) (err error){
-	if ddlPatern.MatchString(qp.GetSQL()) {
-		log.Debugf("deal ddl: %s\n", qp.String())
+	defer func() {
+		if err != nil {
+			log.Errorf("export with kafka failed <-- %s", err.Error())
+		}
+	}()
+
+	if qp.NeedSyncSend() {
+		// log.Debugf("deal ddl: %s\n", *qp.String())
 
 		msg := &sarama.ProducerMessage{
 			Topic: ke.syncTopic,
-			Value: sarama.StringEncoder(qp.String()),
+			Value: sarama.ByteEncoder(qp.Bytes()),
 		}
 		_, _, err = ke.syncProducer.SendMessage(msg)
 		if err != nil {
@@ -105,7 +109,7 @@ func (ke *kafkaExporter) Export (qp model.QueryPiece) (err error){
 		}
 
 	} else {
-		log.Debugf("deal non ddl: %s", qp.String())
+		// log.Debugf("deal non ddl: %s", *qp.String())
 		msg := &sarama.ProducerMessage{
 			Topic: ke.asyncTopic,
 			Value: sarama.ByteEncoder(qp.Bytes()),
@@ -113,5 +117,6 @@ func (ke *kafkaExporter) Export (qp model.QueryPiece) (err error){
 
 		ke.asyncProducer.Input() <- msg
 	}
+
 	return
 }

@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"github.com/siddontang/go/hack"
 	"time"
 
 	"github.com/zr-hebo/sniffer-agent/model"
@@ -9,36 +10,40 @@ import (
 )
 
 type MysqlSession struct {
-	connectionID    string
-	visitUser       *string
-	visitDB         *string
-	clientHost      string
-	clientPort      int
-	serverIP      string
-	serverPort      int
-	beginTime       int64
-	expectSize       int
-	prepareInfo *prepareInfo
+	connectionID      *string
+	visitUser         *string
+	visitDB           *string
+	clientHost        *string
+	clientPort        int
+	serverIP          *string
+	serverPort        int
+	stmtBeginTime     int64
+	expectSize        int
+	prepareInfo       *prepareInfo
 	cachedPrepareStmt map[int]*string
-	tcpCache []byte
-	cachedStmtBytes []byte
+	tcpCache          []byte
+	cachedStmtBytes   []byte
 }
 
 type prepareInfo struct {
 	prepareStmtID int
 }
 
-func NewMysqlSession(sessionKey string, clientIP string, clientPort int, serverIP string, serverPort int) (ms *MysqlSession) {
+func NewMysqlSession(sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int) (ms *MysqlSession) {
 	ms = &MysqlSession{
-		connectionID: sessionKey,
-		clientHost: clientIP,
-		clientPort: clientPort,
-		serverIP: serverIP,
-		serverPort: serverPort,
-		beginTime: time.Now().UnixNano() / int64(time.Millisecond),
-		cachedPrepareStmt: make(map[int]*string),
+		connectionID:      sessionKey,
+		clientHost:        clientIP,
+		clientPort:        clientPort,
+		serverIP:          serverIP,
+		serverPort:        serverPort,
+		stmtBeginTime:     time.Now().UnixNano() / millSecondUnit,
+		cachedPrepareStmt: make(map[int]*string, 8),
 	}
 	return
+}
+
+func (ms *MysqlSession) ResetBeginTime()  {
+	ms.stmtBeginTime = time.Now().UnixNano() / millSecondUnit
 }
 
 func (ms *MysqlSession) ReadFromServer(bytes []byte)  {
@@ -82,7 +87,8 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		return
 	}
 
-	var mqp *model.MysqlQueryPiece = nil
+	var mqp *model.PooledMysqlQueryPiece
+	var querySQLInBytes []byte
 	ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
 	switch ms.cachedStmtBytes[0] {
 	case ComAuth:
@@ -107,12 +113,16 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	case ComDropDB:
 	case ComQuery:
 		mqp = ms.composeQueryPiece()
-		querySQL := string(ms.cachedStmtBytes[1:])
+		querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
+		copy(querySQLInBytes, ms.cachedStmtBytes[1:])
+		querySQL := hack.String(querySQLInBytes)
 		mqp.QuerySQL = &querySQL
 
 	case ComStmtPrepare:
 		mqp = ms.composeQueryPiece()
-		querySQL := string(ms.cachedStmtBytes[1:])
+		querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
+		copy(querySQLInBytes, ms.cachedStmtBytes[1:])
+		querySQL := hack.String(querySQLInBytes)
 		mqp.QuerySQL = &querySQL
 		ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = &querySQL
 		log.Debugf("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
@@ -145,31 +155,27 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	ms.cachedStmtBytes = ms.cachedStmtBytes[:0]
 	ms.expectSize = 0
 	ms.prepareInfo = nil
-	return filterQueryPieceBySQL(mqp)
+	return filterQueryPieceBySQL(mqp, querySQLInBytes)
 }
 
-func filterQueryPieceBySQL(mqp *model.MysqlQueryPiece) (model.QueryPiece) {
-	if mqp == nil || mqp.QuerySQL == nil {
+func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (model.QueryPiece) {
+	if mqp == nil || querySQL == nil {
 		return nil
 
-	} else if (uselessSQLPattern.MatchString(*mqp.QuerySQL)) {
+	} else if (uselessSQLPattern.Match(querySQL)) {
 		return nil
+
 	}
 
+	if ddlPatern.Match(querySQL) {
+		mqp.SetNeedSyncSend(true)
+	}
+
+	// log.Debug(mqp.String())
 	return mqp
 }
 
-func (ms *MysqlSession) composeQueryPiece() (mqp *model.MysqlQueryPiece) {
-	nowInMS := time.Now().UnixNano() / int64(time.Millisecond)
-	mqp = &model.MysqlQueryPiece{
-		SessionID:    ms.connectionID,
-		ClientHost:   ms.clientHost,
-		ServerIP:     ms.serverIP,
-		ServerPort:   ms.serverPort,
-		VisitUser:    ms.visitUser,
-		VisitDB:      ms.visitDB,
-		BeginTime:    time.Unix(ms.beginTime/1000, 0).Format(datetimeFormat),
-		CostTimeInMS: nowInMS - ms.beginTime,
-	}
-	return mqp
+func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
+	return model.NewPooledMysqlQueryPiece(
+		ms.connectionID, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP, ms.serverPort, ms.stmtBeginTime)
 }

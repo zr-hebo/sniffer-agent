@@ -3,12 +3,12 @@ package capture
 import (
 	"flag"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
-	"github.com/zr-hebo/sniffer-agent/model"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	log "github.com/sirupsen/logrus"
+	"github.com/zr-hebo/sniffer-agent/model"
+	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 )
 
 var (
@@ -41,22 +41,29 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 			close(receiver)
 		}()
 
-		handle, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
+		handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 		if err != nil {
 			panic(fmt.Sprintf("cannot open network interface %s <-- %s", nc.name, err.Error()))
 		}
+		linkType := handler.LinkType()
 
-		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-		for packet := range packetSource.Packets() {
-			if packet.NetworkLayer() == nil || packet.TransportLayer() == nil {
-				// log.Info("empty network layer")
+		err = handler.SetBPFFilter(fmt.Sprintf("tcp and (port %d)", snifferPort))
+		if err != nil {
+			panic(err.Error())
+		}
+
+		for {
+			var data []byte
+			data, ci, err := handler.ZeroCopyReadPacketData()
+			if err != nil {
+				log.Error(err.Error())
 				continue
 			}
 
-			if packet.TransportLayer().LayerType() != layers.LayerTypeTCP {
-				// log.Info("packet type is %s, not TCP", packet.TransportLayer().LayerType())
-				continue
-			}
+			packet := gopacket.NewPacket(data, linkType, gopacket.NoCopy)
+			m := packet.Metadata()
+			m.CaptureInfo = ci
+			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
 
 			qp := nc.parseTCPPackage(packet)
 			if qp != nil {
@@ -81,10 +88,6 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 		return
 	}
 
-	if(int(tcpConn.DstPort) != nc.listenPort && int(tcpConn.SrcPort) != nc.listenPort) {
-		return
-	}
-
 	ipLayer := packet.Layer(layers.LayerTypeIPv4)
 	if ipLayer == nil {
 		err = fmt.Errorf("no ip layer found in package")
@@ -102,16 +105,16 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 	dstIP := ipInfo.DstIP.String()
 	srcPort := int(tcpConn.SrcPort)
 	dstPort := int(tcpConn.DstPort)
-	if dstIP == localIPAddr && dstPort == nc.listenPort {
+	if dstIP == *localIPAddr && dstPort == nc.listenPort {
 		// deal mysql server response
-		err = readToServerPackage(srcIP, srcPort, tcpConn)
+		err = readToServerPackage(&srcIP, srcPort, tcpConn)
 		if err != nil {
 			return
 		}
 
-	} else if srcIP == localIPAddr && srcPort == nc.listenPort {
+	} else if srcIP == *localIPAddr && srcPort == nc.listenPort {
 		// deal mysql client request
-		qp, err = readFromServerPackage(dstIP, dstPort, tcpConn)
+		qp, err = readFromServerPackage(&dstIP, dstPort, tcpConn)
 		if err != nil {
 			return
 		}
@@ -120,17 +123,17 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 	return
 }
 
-func readFromServerPackage(srcIP string, srcPort int, tcpConn *layers.TCP) (qp model.QueryPiece, err error) {
+func readFromServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (qp model.QueryPiece, err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read Mysql package send from mysql server to client failed <-- %s", err.Error())
 		}
 	}()
 
-	sessionKey := spliceSessionKey(srcIP, srcPort)
 	if tcpConn.FIN {
-		delete(sessionPool, sessionKey)
-		// log.Debugf("close connection from %s", sessionKey)
+		sessionKey := spliceSessionKey(srcIP, srcPort)
+		delete(sessionPool, *sessionKey)
+		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
 
@@ -139,7 +142,8 @@ func readFromServerPackage(srcIP string, srcPort int, tcpConn *layers.TCP) (qp m
 		return
 	}
 
-	session := sessionPool[sessionKey]
+	sessionKey := spliceSessionKey(srcIP, srcPort)
+	session := sessionPool[*sessionKey]
 	if session != nil {
 		session.ReadFromServer(tcpPayload)
 		qp = session.GenerateQueryPiece()
@@ -148,18 +152,18 @@ func readFromServerPackage(srcIP string, srcPort int, tcpConn *layers.TCP) (qp m
 	return
 }
 
-func readToServerPackage(srcIP string, srcPort int, tcpConn *layers.TCP) (err error) {
+func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read package send from client to mysql server failed <-- %s", err.Error())
 		}
 	}()
 
-	sessionKey := spliceSessionKey(srcIP, srcPort)
 	// when client try close connection remove session from session pool
 	if tcpConn.FIN {
-		delete(sessionPool, sessionKey)
-		// log.Debugf("close connection from %s", sessionKey)
+		sessionKey := spliceSessionKey(srcIP, srcPort)
+		delete(sessionPool, *sessionKey)
+		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
 
@@ -168,12 +172,14 @@ func readToServerPackage(srcIP string, srcPort int, tcpConn *layers.TCP) (err er
 		return
 	}
 
-	session := sessionPool[sessionKey]
+	sessionKey := spliceSessionKey(srcIP, srcPort)
+	session := sessionPool[*sessionKey]
 	if session == nil {
 		session = sd.NewSession(sessionKey, srcIP, srcPort, localIPAddr, snifferPort)
-		sessionPool[sessionKey] = session
+		sessionPool[*sessionKey] = session
 	}
 
+	session.ResetBeginTime()
 	session.ReadFromClient(tcpPayload)
 	return
 }

@@ -34,7 +34,19 @@ func getLocalIPAddr() (ipAddr string, err error) {
 	return
 }
 
-func spliceSessionKey(srcIP string, srcPort int) (sessionKey string) {
-	sessionKey = fmt.Sprintf("%s:%d", srcIP, srcPort)
-	return
+func spliceSessionKey(srcIP *string, srcPort int) (*string) {
+	// var buf strings.Builder
+	// _, err := fmt.Fprint(&buf, *srcIP, ":", srcPort)
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
+	// sessionKey := buf.String()
+
+	// buf := new(bytes.Buffer)
+	// _ = templateSessionKey.ExecuteTemplate(buf, "IP", srcIP)
+	// _ = templateSessionKey.ExecuteTemplate(buf, "Port", srcPort)
+	// sessionKey := buf.String()
+
+	sessionKey := fmt.Sprintf("%s:%d", *srcIP, srcPort)
+	return &sessionKey
 }

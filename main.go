@@ -55,6 +55,7 @@ func mainServer()  {
 		if err != nil {
 			log.Error(err.Error())
 		}
+		queryPiece.Recovery()
 	}
 
 	log.Errorf("cannot get network package from %s", capture.DeviceName)

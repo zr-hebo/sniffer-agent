@@ -5,7 +5,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	du "github.com/zr-hebo/util-db"
-	// log "github.com/sirupsen/logrus"
 )
 
 func expandLocalMysql(port int) (mysqlHost *du.MysqlDB) {
@@ -20,7 +19,7 @@ func expandLocalMysql(port int) (mysqlHost *du.MysqlDB) {
 	return
 }
 
-func querySessionInfo(snifferPort int, clientHost string) (user, db *string, err error) {
+func querySessionInfo(snifferPort int, clientHost *string) (user, db *string, err error) {
 	mysqlServer := expandLocalMysql(snifferPort)
 	querySQL := fmt.Sprintf(
 		"SELECT user, db FROM information_schema.processlist WHERE host='%s'", clientHost)
