@@ -1,4 +1,4 @@
-#  import json
+import json
 from kafka import KafkaConsumer, KafkaProducer
 
 
@@ -6,7 +6,7 @@ from kafka import KafkaConsumer, KafkaProducer
 kafka_server = '192.168.XX.XX:9091'
 
 group_id = 'sniffer'
-topic = 'ddl_sql_collector'
+topic = 'non_ddl_sql_collector'
 
 
 def check_consume():
@@ -21,8 +21,8 @@ def check_consume():
     consumer = KafkaConsumer(topic, **conf)
     print('ready to consume')
     for msg in consumer:
-        #  event = json.loads(bytes.decode(msg.value))
-        print(msg)
+        event = json.loads(bytes.decode(msg.value))
+        print(event)
 
 
 def check_produce():
@@ -45,8 +45,8 @@ def check_produce():
 
 
 def _real_main():
-    check_produce()
-    #  check_consume()
+    # check_produce()
+    check_consume()
 
 
 if __name__ == '__main__':
