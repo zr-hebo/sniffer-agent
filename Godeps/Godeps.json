@@ -70,8 +70,17 @@
 			"Rev": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6"
 		},
 		{
+			"ImportPath": "github.com/pingcap/tidb/util/hack",
+			"Comment": "v2.1.0-beta-226-g360ef5c",
+			"Rev": "360ef5cee790475e9d75cb349e1b47b0a7a4efee"
+		},
+		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "e181e095bae94582363434144c61a9653aff6e50"
+		},
+		{
+			"ImportPath": "github.com/siddontang/go/hack",
+			"Rev": "bdc77568d726a8702315ec4eafda030b6abc4f43"
 		},
 		{
 			"ImportPath": "github.com/sirupsen/logrus",
