@@ -1,8 +1,11 @@
 package capture
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/pingcap/tidb/util/hack"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -35,18 +38,11 @@ func getLocalIPAddr() (ipAddr string, err error) {
 }
 
 func spliceSessionKey(srcIP *string, srcPort int) (*string) {
-	// var buf strings.Builder
-	// _, err := fmt.Fprint(&buf, *srcIP, ":", srcPort)
-	// if err != nil {
-	// 	panic(err.Error())
-	// }
-	// sessionKey := buf.String()
-
-	// buf := new(bytes.Buffer)
-	// _ = templateSessionKey.ExecuteTemplate(buf, "IP", srcIP)
-	// _ = templateSessionKey.ExecuteTemplate(buf, "Port", srcPort)
-	// sessionKey := buf.String()
-
-	sessionKey := fmt.Sprintf("%s:%d", *srcIP, srcPort)
+	// sessionKey := fmt.Sprintf("%s:%d", *srcIP, srcPort)
+	var buffer = bytes.NewBuffer(make([]byte, 0, 24))
+	buffer.WriteString(*srcIP)
+	buffer.WriteString(":")
+	buffer.WriteString(strconv.Itoa(srcPort))
+	sessionKey := hack.String(buffer.Bytes())
 	return &sessionKey
 }

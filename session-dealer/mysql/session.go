@@ -164,7 +164,6 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (m
 
 	} else if (uselessSQLPattern.Match(querySQL)) {
 		return nil
-
 	}
 
 	if ddlPatern.Match(querySQL) {

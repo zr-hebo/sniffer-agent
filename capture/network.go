@@ -6,6 +6,10 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"golang.org/x/net/bpf"
+
+	// "github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/model"
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
@@ -32,6 +36,38 @@ func NewNetworkCard() (nc *networkCard) {
 	return &networkCard{name: DeviceName, listenPort: snifferPort}
 }
 
+func initEthernetHandler() (handler *pcapgo.EthernetHandle) {
+	// handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
+	handler, err := pcapgo.NewEthernetHandle(DeviceName)
+	if err != nil {
+		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
+	}
+
+	// set BPFFilter
+	pcapBPF, err := pcap.CompileBPFFilter(
+		layers.LinkTypeEthernet, 65535, fmt.Sprintf("tcp and (port %d)", snifferPort))
+	if err != nil {
+		panic(err.Error())
+	}
+	bpfIns := []bpf.RawInstruction{}
+	for _, ins := range pcapBPF {
+		bpfIns2 := bpf.RawInstruction{
+			Op: ins.Code,
+			Jt: ins.Jt,
+			Jf: ins.Jf,
+			K:  ins.K,
+		}
+		bpfIns = append(bpfIns, bpfIns2)
+	}
+
+	err = handler.SetBPF(bpfIns)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return
+}
+
 // Listen get a connection.
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 	receiver = make(chan model.QueryPiece, 100)
@@ -41,17 +77,7 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 			close(receiver)
 		}()
 
-		handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
-		if err != nil {
-			panic(fmt.Sprintf("cannot open network interface %s <-- %s", nc.name, err.Error()))
-		}
-		linkType := handler.LinkType()
-
-		err = handler.SetBPFFilter(fmt.Sprintf("tcp and (port %d)", snifferPort))
-		if err != nil {
-			panic(err.Error())
-		}
-
+		handler := initEthernetHandler()
 		for {
 			var data []byte
 			data, ci, err := handler.ZeroCopyReadPacketData()
@@ -60,7 +86,7 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 				continue
 			}
 
-			packet := gopacket.NewPacket(data, linkType, gopacket.NoCopy)
+			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
 			m := packet.Metadata()
 			m.CaptureInfo = ci
 			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length

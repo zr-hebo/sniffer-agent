@@ -55,6 +55,11 @@
 			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
 		},
 		{
+			"ImportPath": "github.com/google/gopacket/pcapgo",
+			"Comment": "v1.1.17-26-gce2e696",
+			"Rev": "ce2e696dc0c9917ecdebd800c892b839f06b2949"
+		},
+		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Comment": "v1.4.0-15-gbb285ea",
 			"Rev": "bb285ea687c5c77bb6935fdb2402b121d8efcbec"
@@ -99,6 +104,10 @@
 		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",
 			"Rev": "eb71ad9bd329b5ac0fd0148dd99bd62e8be8e035"
+		},
+		{
+			"ImportPath": "golang.org/x/net/bpf",
+			"Rev": "d28f0bde5980168871434b95cfc858db9f2a7a99"
 		},
 		{
 			"ImportPath": "golang.org/x/sys/unix",
