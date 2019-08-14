@@ -8,7 +8,6 @@ import (
 	"github.com/google/gopacket/pcap"
 	"golang.org/x/net/bpf"
 
-	// "github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
 	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/model"
