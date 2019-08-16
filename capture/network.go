@@ -35,7 +35,7 @@ func NewNetworkCard() (nc *networkCard) {
 	return &networkCard{name: DeviceName, listenPort: snifferPort}
 }
 
-func initEthernetHandler() (handler *pcapgo.EthernetHandle) {
+func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 	// handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	handler, err := pcapgo.NewEthernetHandle(DeviceName)
 	if err != nil {
@@ -67,6 +67,20 @@ func initEthernetHandler() (handler *pcapgo.EthernetHandle) {
 	return
 }
 
+func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
+	handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
+	if err != nil {
+		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
+	}
+
+	err = handler.SetBPFFilter(fmt.Sprintf("tcp and (port %d)", snifferPort))
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return
+}
+
 // Listen get a connection.
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 	receiver = make(chan model.QueryPiece, 100)
@@ -76,10 +90,11 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 			close(receiver)
 		}()
 
-		handler := initEthernetHandler()
+		handler := initEthernetHandlerFromPacp()
 		for {
 			var data []byte
-			data, ci, err := handler.ZeroCopyReadPacketData()
+			// data, ci, err := handler.ZeroCopyReadPacketData()
+			data, ci, err := handler.ReadPacketData()
 			if err != nil {
 				log.Error(err.Error())
 				continue
@@ -130,14 +145,14 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 	dstIP := ipInfo.DstIP.String()
 	srcPort := int(tcpConn.SrcPort)
 	dstPort := int(tcpConn.DstPort)
-	if dstIP == *localIPAddr && dstPort == nc.listenPort {
+	if dstPort == nc.listenPort {
 		// deal mysql server response
 		err = readToServerPackage(&srcIP, srcPort, tcpConn)
 		if err != nil {
 			return
 		}
 
-	} else if srcIP == *localIPAddr && srcPort == nc.listenPort {
+	} else if srcPort == nc.listenPort {
 		// deal mysql client request
 		qp, err = readFromServerPackage(&dstIP, dstPort, tcpConn)
 		if err != nil {
@@ -206,6 +221,10 @@ func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err e
 
 	session.ResetBeginTime()
 	session.ReadFromClient(tcpPayload)
+	a := session.ReadOnePackageFinish()
+	if  a {
+		session.ResetCache()
+	}
 	return
 }
 

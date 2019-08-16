@@ -18,8 +18,12 @@ type MysqlSession struct {
 	serverIP          *string
 	serverPort        int
 	stmtBeginTime     int64
-	expectSize        int
+	expectReceiveSize int
+	packageBaseSize   int
+	packageComplete   bool
+	expectSendSize    int
 	prepareInfo       *prepareInfo
+	sizeCount map[int]int64
 	cachedPrepareStmt map[int]*string
 	tcpCache          []byte
 	cachedStmtBytes   []byte
@@ -28,6 +32,11 @@ type MysqlSession struct {
 type prepareInfo struct {
 	prepareStmtID int
 }
+
+const (
+	defaultCacheSize  = 1<<16
+	maxBeyondCount = 3
+)
 
 func NewMysqlSession(sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int) (ms *MysqlSession) {
 	ms = &MysqlSession{
@@ -39,6 +48,11 @@ func NewMysqlSession(sessionKey *string, clientIP *string, clientPort int, serve
 		stmtBeginTime:     time.Now().UnixNano() / millSecondUnit,
 		cachedPrepareStmt: make(map[int]*string, 8),
 	}
+	ms.tcpCache = make([]byte, 0, defaultCacheSize)
+	ms.cachedStmtBytes = make([]byte, 0, defaultCacheSize)
+	ms.packageBaseSize = 512
+	ms.sizeCount = make(map[int]int64)
+
 	return
 }
 
@@ -47,43 +61,130 @@ func (ms *MysqlSession) ResetBeginTime()  {
 }
 
 func (ms *MysqlSession) ReadFromServer(bytes []byte)  {
-	if ms.expectSize < 1 {
-		ms.expectSize = extractMysqlPayloadSize(bytes)
+	if ms.expectSendSize < 1 {
+		ms.expectSendSize = extractMysqlPayloadSize(bytes[:4])
 		contents := bytes[4:]
 		if ms.prepareInfo != nil && contents[0] == 0 {
 			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
 		}
-		ms.expectSize = ms.expectSize - len(contents)
+		fmt.Printf("Init ms.expectSendSize: %v\n", ms.expectSendSize)
+		ms.expectSendSize = ms.expectSendSize - len(contents)
 
 	} else {
-		ms.expectSize = ms.expectSize - len(bytes)
+		ms.expectSendSize = ms.expectSendSize - len(bytes)
 	}
 }
 
 func (ms *MysqlSession) ReadFromClient(bytes []byte)  {
-	if ms.expectSize < 1 {
-		ms.expectSize = extractMysqlPayloadSize(bytes)
+	if ms.expectReceiveSize < 1 {
+		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
 		contents := bytes[4:]
 		if contents[0] == ComStmtPrepare {
 			ms.prepareInfo = &prepareInfo{}
 		}
 
-		ms.expectSize = ms.expectSize - len(contents)
 		ms.tcpCache = append(ms.tcpCache, contents...)
+		ms.expectReceiveSize = ms.expectReceiveSize - len(contents)
 
 	} else {
-		ms.expectSize = ms.expectSize - len(bytes)
 		ms.tcpCache = append(ms.tcpCache, bytes...)
-		if len(ms.tcpCache) == MaxPayloadLen {
+		ms.expectReceiveSize = ms.expectReceiveSize - len(bytes)
+	}
+
+	readSize := len(bytes)
+	readTail := readSize % ms.packageBaseSize
+	if readTail != 0 {
+		if ms.expectReceiveSize == 0 {
 			ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
-			ms.tcpCache = ms.tcpCache[:0]
-			ms.expectSize = 0
+			ms.tcpCache = ms.tcpCache[0:0]
+			ms.packageComplete = true
+
+		} else {
+			ms.packageComplete = false
+		}
+
+	} else if readTail == 0 && ms.expectReceiveSize == 0 {
+		ms.packageComplete = true
+	}
+
+	miniMatchSize := 1 << 16
+	for size := range ms.sizeCount  {
+		if readSize % size == 0 && miniMatchSize > size {
+			miniMatchSize = size
 		}
 	}
+	if miniMatchSize < 1 << 16 {
+		ms.sizeCount[miniMatchSize] = ms.sizeCount[miniMatchSize] + 1
+	} else if (ms.expectReceiveSize != 0) {
+		ms.sizeCount[readSize] = 1
+	}
+
+
+
+	mostFrequentSize := ms.packageBaseSize
+	miniSize := ms.packageBaseSize
+	mostFrequentCount := int64(0)
+	for size, count := range ms.sizeCount  {
+		if count > mostFrequentCount {
+			mostFrequentSize = size
+			mostFrequentCount = count
+		}
+
+		if miniSize > size {
+			miniSize = size
+		}
+	}
+
+	ms.packageBaseSize = mostFrequentSize
+
+	// fmt.Printf("read %v bytes: %v\n", len(bytes), string(bytes))
+	fmt.Printf("ms.expectReceiveSize: %v\n", ms.expectReceiveSize)
+	fmt.Printf("ms.sizeCount: %#v\n", ms.sizeCount)
+	fmt.Printf("len(ms.tcpCache): %#v\n", len(ms.tcpCache))
+	fmt.Printf("packageComplete in read: %v\n", ms.packageComplete)
+	log.Infof("ms.packageBaseSize: %v", ms.packageBaseSize)
+}
+
+func (ms *MysqlSession) ReadOnePackageFinish() bool {
+	if len(ms.tcpCache) == MaxPayloadLen {
+		return true
+	}
+
+	return false
+}
+
+func (ms *MysqlSession) ReadAllPackageFinish() bool {
+	// fmt.Printf("len(ms.tcpCache): %v\n", len(ms.tcpCache))
+	// fmt.Printf("ms.expectReceiveSize: %v\n", ms.expectReceiveSize)
+
+	if len(ms.tcpCache) < MaxPayloadLen {
+		return true
+	}
+
+	return false
+}
+
+func (ms *MysqlSession) ResetCache() {
+	ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
+	ms.tcpCache = ms.tcpCache[0:0]
 }
 
 func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
+	defer func() {
+		ms.tcpCache = ms.tcpCache[0:0]
+		ms.cachedStmtBytes = ms.cachedStmtBytes[0:0]
+		ms.expectReceiveSize = 0
+		ms.expectSendSize = 0
+		ms.prepareInfo = nil
+		ms.packageComplete = false
+	}()
+
 	if len(ms.cachedStmtBytes) < 1 && len(ms.tcpCache) < 1 {
+		return
+	}
+
+	// fmt.Printf("packageComplete in generate: %v\n", ms.packageComplete)
+	if !ms.packageComplete {
 		return
 	}
 
@@ -96,7 +197,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		var err error
 		userName, dbName, err = parseAuthInfo(ms.cachedStmtBytes)
 		if err != nil {
-			return
+			log.Errorf("parse auth info failed <-- %s", err.Error())
 		}
 		ms.visitUser = &userName
 		ms.visitDB = &dbName
@@ -109,9 +210,13 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		// update session database
 		ms.visitDB = &newDBName
 
-	case ComCreateDB:
 	case ComDropDB:
-	case ComQuery:
+		dbName := string(ms.cachedStmtBytes[1:])
+		dropSQL := fmt.Sprintf("drop database %s", dbName)
+		mqp = ms.composeQueryPiece()
+		mqp.QuerySQL = &dropSQL
+
+	case ComCreateDB, ComQuery:
 		mqp = ms.composeQueryPiece()
 		querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
 		copy(querySQLInBytes, ms.cachedStmtBytes[1:])
@@ -139,6 +244,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		log.Debugf("remove prepare statement:%d", prepareStmtID)
 
 	default:
+		return
 	}
 
 	if strictMode && mqp != nil && mqp.VisitUser == nil {
@@ -151,10 +257,6 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		}
 	}
 
-	ms.tcpCache = ms.tcpCache[:0]
-	ms.cachedStmtBytes = ms.cachedStmtBytes[:0]
-	ms.expectSize = 0
-	ms.prepareInfo = nil
 	return filterQueryPieceBySQL(mqp, querySQLInBytes)
 }
 

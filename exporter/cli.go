@@ -13,6 +13,6 @@ func NewCliExporter() *cliExporter {
 }
 
 func (c *cliExporter) Export (qp model.QueryPiece) (err error){
-	fmt.Println(qp.String())
+	fmt.Println(*qp.String())
 	return
 }

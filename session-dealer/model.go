@@ -7,4 +7,7 @@ type ConnSession interface {
 	ReadFromServer(bytes []byte)
 	ResetBeginTime()
 	GenerateQueryPiece() (qp model.QueryPiece)
+	ReadAllPackageFinish() bool
+	ReadOnePackageFinish() bool
+	ResetCache()
 }
