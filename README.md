@@ -83,7 +83,7 @@ apt-get install libpcap-dev
 在做这个功能之前，项目组调研过类似功能的产品，最有名的是 [mysql-sniffer](https://github.com/Qihoo360/mysql-sniffer) 和 [go-sniffer](https://github.com/40t/go-sniffer)，这两个产品都很优秀，不过我们的业务场景要求更多。
 我们需要将提取的SQL信息发送到kafka进行处理，之前的两个产品输出的结果需要进行一些处理然后自己发送，在QPS比较高的情况下，这些处理会消耗较多的CPU；
 另外mysql-sniffer使用c++开发，平台的适用性较差，后期扩展较难。
-开发的过程中也借鉴了这些产品的思想，另外在MySQL包解析的时候，参考了一些 [TiDB](https://github.com/pingcap/tidb) 的内容，部分私有变量和函数直接复制使用，这里向这些优秀的产品致敬，如有侵权请随时联系。
+开发的过程中也借鉴了这些产品的思想，另外在MySQL包解析的时候，参考了一些 [Vitess](https://github.com/vitessio/vitess) 和 [TiDB](https://github.com/pingcap/tidb) 的内容，部分私有变量和函数直接复制使用，这里向这些优秀的产品致敬，如有侵权请随时联系。
 
 ### License
 [MIT](https://opensource.org/licenses/MIT)
