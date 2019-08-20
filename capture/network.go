@@ -18,11 +18,13 @@ import (
 var (
 	DeviceName  string
 	snifferPort int
+	inParallel bool
 )
 
 func init() {
 	flag.StringVar(&DeviceName, "interface", "eth0", "network device name. Default is eth0")
 	flag.IntVar(&snifferPort, "port", 3306, "sniffer port. Default is 3306")
+	flag.BoolVar(&inParallel, "in_parallel", false, "if capture and deal package in parallel. Default is false")
 }
 
 // networkCard is network device
@@ -64,15 +66,12 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
-	// fmt.Printf("++++ handler.CaptureLength: %d\n", handler.GetCaptureLength())
 	_ = handler.SetCaptureLength(65535)
-	// fmt.Printf("++++ handler.CaptureLength: %d\n", handler.GetCaptureLength())
 
 	return
 }
 
 func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
-	// handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	if err != nil {
 		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
@@ -87,8 +86,16 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 	return
 }
 
-// Listen get a connection.
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
+	if inParallel {
+		return nc.listenInParallel()
+	}
+
+	return nc.listenNormal()
+}
+
+// Listen get a connection.
+func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
 	receiver = make(chan model.QueryPiece, 100)
 
 	go func() {
@@ -96,7 +103,6 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 		for {
 			var data []byte
 			data, ci, err := handler.ZeroCopyReadPacketData()
-			// data, ci, err := handler.ReadPacketData()
 			if err != nil {
 				log.Error(err.Error())
 				time.Sleep(time.Second*3)
@@ -119,7 +125,7 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 }
 
 // Listen get a connection.
-func (nc *networkCard) ListenInParallel() (receiver chan model.QueryPiece) {
+func (nc *networkCard) listenInParallel() (receiver chan model.QueryPiece) {
 	receiver = make(chan model.QueryPiece, 100)
 	packageChan := make(chan gopacket.Packet, 10)
 
