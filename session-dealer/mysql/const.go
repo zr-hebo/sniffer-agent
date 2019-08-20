@@ -95,8 +95,8 @@ const (
 // Identifier length limitations.
 // See https://dev.mysql.com/doc/refman/5.7/en/identifiers.html
 const (
-	// MaxPayloadLen is the max packet payload length.
-	MaxPayloadLen = 1<<24 - 1
+	// MaxMysqlPacketLen is the max packet payload length.
+	MaxMysqlPacketLen = 1<<24 - 1
 )
 
 const (

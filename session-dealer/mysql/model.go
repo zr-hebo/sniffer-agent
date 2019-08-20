@@ -7,3 +7,9 @@ type handshakeResponse41 struct {
 	DBName     string
 	Auth       []byte
 }
+
+// jigsaw record tcp package begin and end seq id
+type jigsaw struct {
+	b int64
+	e int64
+}

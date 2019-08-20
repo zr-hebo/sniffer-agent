@@ -3,7 +3,6 @@ package mysql
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 // parseHandshakeResponseHeader parses the common header of SSLRequest and HandshakeResponse41.
@@ -123,9 +122,6 @@ func parseLengthEncodedInt(b []byte) (num uint64, isNull bool, n int) {
 }
 
 func extractMysqlPayloadSize(header []byte) int {
-	fmt.Printf("==== package header: %v\n", header)
-
-	// return int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
 	return int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
 }
 

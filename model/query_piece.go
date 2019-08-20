@@ -7,6 +7,7 @@ import (
 	"github.com/pingcap/tidb/util/hack"
 )
 
+
 type QueryPiece interface {
 	String() *string
 	Bytes() []byte
@@ -68,14 +69,14 @@ func NewPooledMysqlQueryPiece(
 	return
 }
 
-func (qp *MysqlQueryPiece) String() (*string) {
-	content := qp.Bytes()
+func (mqp *MysqlQueryPiece) String() (*string) {
+	content := mqp.Bytes()
 	contentStr := hack.String(content)
 	return &contentStr
 }
 
-func (qp *MysqlQueryPiece) Bytes() (bytes []byte) {
-	content, err := json.Marshal(qp)
+func (mqp *MysqlQueryPiece) Bytes() (bytes []byte) {
+	content, err := json.Marshal(mqp)
 	if err != nil {
 		return []byte(err.Error())
 	}
@@ -83,16 +84,16 @@ func (qp *MysqlQueryPiece) Bytes() (bytes []byte) {
 	return content
 }
 
-func (qp *MysqlQueryPiece) GetSQL() (str *string) {
-	return qp.QuerySQL
+func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
+	return mqp.QuerySQL
 }
 
-func (qp *MysqlQueryPiece) NeedSyncSend() (bool) {
-	return qp.SyncSend
+func (mqp *MysqlQueryPiece) NeedSyncSend() (bool) {
+	return mqp.SyncSend
 }
 
-func (qp *MysqlQueryPiece) SetNeedSyncSend(syncSend bool) {
-	qp.SyncSend = syncSend
+func (mqp *MysqlQueryPiece) SetNeedSyncSend(syncSend bool) {
+	mqp.SyncSend = syncSend
 }
 
 func (pmqp *PooledMysqlQueryPiece) Recovery() {

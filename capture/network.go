@@ -7,6 +7,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"golang.org/x/net/bpf"
+	"time"
 
 	"github.com/google/gopacket/pcapgo"
 	log "github.com/sirupsen/logrus"
@@ -36,7 +37,6 @@ func NewNetworkCard() (nc *networkCard) {
 }
 
 func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
-	// handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	handler, err := pcapgo.NewEthernetHandle(DeviceName)
 	if err != nil {
 		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
@@ -50,13 +50,13 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 	}
 	bpfIns := []bpf.RawInstruction{}
 	for _, ins := range pcapBPF {
-		bpfIns2 := bpf.RawInstruction{
+		bpfIn := bpf.RawInstruction{
 			Op: ins.Code,
 			Jt: ins.Jt,
 			Jf: ins.Jf,
 			K:  ins.K,
 		}
-		bpfIns = append(bpfIns, bpfIns2)
+		bpfIns = append(bpfIns, bpfIn)
 	}
 
 	err = handler.SetBPF(bpfIns)
@@ -64,10 +64,15 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
+	// fmt.Printf("++++ handler.CaptureLength: %d\n", handler.GetCaptureLength())
+	_ = handler.SetCaptureLength(65535)
+	// fmt.Printf("++++ handler.CaptureLength: %d\n", handler.GetCaptureLength())
+
 	return
 }
 
 func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
+	// handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
 	if err != nil {
 		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
@@ -77,6 +82,7 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 	if err != nil {
 		panic(err.Error())
 	}
+	handler.SnapLen()
 
 	return
 }
@@ -86,17 +92,14 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 	receiver = make(chan model.QueryPiece, 100)
 
 	go func() {
-		defer func() {
-			close(receiver)
-		}()
-
-		handler := initEthernetHandlerFromPacp()
+		handler := initEthernetHandlerFromPacpgo()
 		for {
 			var data []byte
-			// data, ci, err := handler.ZeroCopyReadPacketData()
-			data, ci, err := handler.ReadPacketData()
+			data, ci, err := handler.ZeroCopyReadPacketData()
+			// data, ci, err := handler.ReadPacketData()
 			if err != nil {
 				log.Error(err.Error())
+				time.Sleep(time.Second*3)
 				continue
 			}
 
@@ -105,6 +108,54 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 			m.CaptureInfo = ci
 			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
 
+			qp := nc.parseTCPPackage(packet)
+			if qp != nil {
+				receiver <- qp
+			}
+		}
+	}()
+
+	return
+}
+
+// Listen get a connection.
+func (nc *networkCard) ListenInParallel() (receiver chan model.QueryPiece) {
+	receiver = make(chan model.QueryPiece, 100)
+	packageChan := make(chan gopacket.Packet, 10)
+
+	// read packet
+	go func() {
+		defer func() {
+			close(packageChan)
+		}()
+
+		handler := initEthernetHandlerFromPacpgo()
+		for {
+			var data []byte
+			// data, ci, err := handler.ZeroCopyReadPacketData()
+			data, ci, err := handler.ReadPacketData()
+			if err != nil {
+				log.Error(err.Error())
+				time.Sleep(time.Second*3)
+				continue
+			}
+
+			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
+			m := packet.Metadata()
+			m.CaptureInfo = ci
+			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
+
+			packageChan <- packet
+		}
+	}()
+
+	// deal packet
+	go func() {
+		defer func() {
+			close(receiver)
+		}()
+
+		for packet := range packageChan {
 			qp := nc.parseTCPPackage(packet)
 			if qp != nil {
 				receiver <- qp
@@ -182,6 +233,8 @@ func readFromServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (qp 
 		return
 	}
 
+	_ = tcpConn.Seq
+
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
@@ -220,11 +273,7 @@ func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err e
 	}
 
 	session.ResetBeginTime()
-	session.ReadFromClient(tcpPayload)
-	a := session.ReadOnePackageFinish()
-	if  a {
-		session.ResetCache()
-	}
+	session.ReadFromClient(int64(tcpConn.Seq), tcpPayload)
 	return
 }
 

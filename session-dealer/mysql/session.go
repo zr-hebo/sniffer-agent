@@ -2,11 +2,11 @@ package mysql
 
 import (
 	"fmt"
-	"github.com/siddontang/go/hack"
 	"time"
 
-	"github.com/zr-hebo/sniffer-agent/model"
+	"github.com/siddontang/go/hack"
 	log "github.com/sirupsen/logrus"
+	"github.com/zr-hebo/sniffer-agent/model"
 )
 
 type MysqlSession struct {
@@ -18,15 +18,17 @@ type MysqlSession struct {
 	serverIP          *string
 	serverPort        int
 	stmtBeginTime     int64
+	beginSeqID        int64
+	packageOffset     int64
 	expectReceiveSize int
-	packageBaseSize   int
-	packageComplete   bool
+	coverRanges       []*jigsaw
+	tcpWindowSize     int
 	expectSendSize    int
 	prepareInfo       *prepareInfo
-	sizeCount map[int]int64
+	sizeCount         map[int]int64
 	cachedPrepareStmt map[int]*string
-	tcpCache          []byte
 	cachedStmtBytes   []byte
+	computeWindowSizeCounter int
 }
 
 type prepareInfo struct {
@@ -34,8 +36,8 @@ type prepareInfo struct {
 }
 
 const (
-	defaultCacheSize  = 1<<16
-	maxBeyondCount = 3
+	defaultCacheSize  = 1 << 16
+	maxIPPackageSize = 1 << 16
 )
 
 func NewMysqlSession(sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int) (ms *MysqlSession) {
@@ -48,9 +50,8 @@ func NewMysqlSession(sessionKey *string, clientIP *string, clientPort int, serve
 		stmtBeginTime:     time.Now().UnixNano() / millSecondUnit,
 		cachedPrepareStmt: make(map[int]*string, 8),
 	}
-	ms.tcpCache = make([]byte, 0, defaultCacheSize)
-	ms.cachedStmtBytes = make([]byte, 0, defaultCacheSize)
-	ms.packageBaseSize = 512
+	ms.tcpWindowSize = 512
+	ms.coverRanges = make([]*jigsaw, 0, 4)
 	ms.sizeCount = make(map[int]int64)
 
 	return
@@ -67,62 +68,143 @@ func (ms *MysqlSession) ReadFromServer(bytes []byte)  {
 		if ms.prepareInfo != nil && contents[0] == 0 {
 			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
 		}
-		fmt.Printf("Init ms.expectSendSize: %v\n", ms.expectSendSize)
-		ms.expectSendSize = ms.expectSendSize - len(contents)
-
-	} else {
-		ms.expectSendSize = ms.expectSendSize - len(bytes)
 	}
 }
 
-func (ms *MysqlSession) ReadFromClient(bytes []byte)  {
-	if ms.expectReceiveSize < 1 {
+func (ms *MysqlSession) mergeRanges()  {
+	if len(ms.coverRanges) > 1 {
+		newRange, newPkgRanges := mergeRanges(ms.coverRanges[0], ms.coverRanges[1:])
+		newPkgRanges = append(newPkgRanges, newRange)
+		ms.coverRanges = newPkgRanges
+	}
+}
+
+func mergeRanges(currRange *jigsaw, pkgRanges []*jigsaw) (mergedRange *jigsaw, newPkgRanges []*jigsaw) {
+	var nextRange *jigsaw
+	if len(pkgRanges) < 1 {
+		return currRange, make([]*jigsaw, 0)
+
+	} else if len(pkgRanges) == 1 {
+		nextRange = pkgRanges[0]
+		newPkgRanges = make([]*jigsaw, 0, 4)
+
+	} else {
+		nextRange, newPkgRanges = mergeRanges(pkgRanges[0], pkgRanges[1:])
+	}
+
+	if currRange.e >= nextRange.b {
+		mergedRange = &jigsaw{b: currRange.b, e: nextRange.e}
+
+	} else {
+		newPkgRanges = append(newPkgRanges, nextRange)
+		mergedRange = currRange
+	}
+	return
+}
+
+func (ms *MysqlSession) oneMysqlPackageFinish() bool {
+	if int64(len(ms.cachedStmtBytes)) % MaxMysqlPacketLen == 0 {
+		return true
+	}
+
+	return false
+}
+
+func (ms *MysqlSession) checkFinish() bool {
+	if len(ms.coverRanges) != 1 {
+		return true
+	}
+
+	firstRange := ms.coverRanges[0]
+	if firstRange.e - firstRange.b != int64(len(ms.cachedStmtBytes)) {
+		return false
+	}
+
+	return true
+}
+
+func (ms *MysqlSession) ReadFromClient(seqID int64, bytes []byte)  {
+	readSize := len(bytes)
+	contentSize := int64(len(bytes))
+
+	if ms.expectReceiveSize == 0 || ms.oneMysqlPackageFinish() {
 		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
+		ms.packageOffset = int64(len(ms.cachedStmtBytes))
+
 		contents := bytes[4:]
 		if contents[0] == ComStmtPrepare {
 			ms.prepareInfo = &prepareInfo{}
 		}
 
-		ms.tcpCache = append(ms.tcpCache, contents...)
-		ms.expectReceiveSize = ms.expectReceiveSize - len(contents)
+		contentSize = int64(len(contents))
+		seqID += 4
+		ms.beginSeqID = seqID
+		newCache := make([]byte, ms.expectReceiveSize+len(ms.cachedStmtBytes))
+		if len(ms.cachedStmtBytes) > 0 {
+			copy(newCache[:len(ms.cachedStmtBytes)], ms.cachedStmtBytes)
+		}
+		copy(newCache[ms.packageOffset:ms.packageOffset+int64(len(contents))], contents)
+		ms.cachedStmtBytes = newCache
 
 	} else {
-		ms.tcpCache = append(ms.tcpCache, bytes...)
-		ms.expectReceiveSize = ms.expectReceiveSize - len(bytes)
-	}
-
-	readSize := len(bytes)
-	readTail := readSize % ms.packageBaseSize
-	if readTail != 0 {
-		if ms.expectReceiveSize == 0 {
-			ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
-			ms.tcpCache = ms.tcpCache[0:0]
-			ms.packageComplete = true
-
-		} else {
-			ms.packageComplete = false
+		if seqID < ms.beginSeqID {
+			log.Debugf("outdate package with Seq:%d", seqID)
+			return
 		}
 
-	} else if readTail == 0 && ms.expectReceiveSize == 0 {
-		ms.packageComplete = true
+		seqOffset := seqID - ms.beginSeqID
+		if ms.packageOffset+seqOffset+int64(len(bytes)) <= int64(ms.expectReceiveSize) {
+			copy(ms.cachedStmtBytes[ms.packageOffset+seqOffset:ms.packageOffset+seqOffset+int64(len(bytes))], bytes)
+		}
 	}
 
-	miniMatchSize := 1 << 16
+	ms.refreshWindowSize(readSize)
+
+	insertIdx := len(ms.coverRanges)
+	for idx, cr := range ms.coverRanges {
+		if seqID < cr.b {
+			insertIdx = idx
+			break
+		}
+	}
+
+	cr := &jigsaw{b: seqID, e: seqID+int64(contentSize)}
+	if insertIdx == len(ms.coverRanges) - 1 {
+		ms.coverRanges = append(ms.coverRanges, cr)
+
+	} else {
+		newCoverRanges := make([]*jigsaw, len(ms.coverRanges)+1)
+		copy(newCoverRanges[:insertIdx], ms.coverRanges[:insertIdx])
+		newCoverRanges[insertIdx] = cr
+		copy(newCoverRanges[insertIdx+1:], ms.coverRanges[insertIdx:])
+		ms.coverRanges = newCoverRanges
+	}
+	ms.mergeRanges()
+
+}
+
+func (ms *MysqlSession) refreshWindowSize(readSize int)  {
+	if ms.computeWindowSizeCounter > 5000 {
+		return
+	}
+
+	log.Debugf("sizeCount: %#v", ms.sizeCount)
+
+	ms.computeWindowSizeCounter += 1
+	miniMatchSize := maxIPPackageSize
 	for size := range ms.sizeCount  {
 		if readSize % size == 0 && miniMatchSize > size {
 			miniMatchSize = size
 		}
 	}
-	if miniMatchSize < 1 << 16 {
+	if miniMatchSize < maxIPPackageSize {
 		ms.sizeCount[miniMatchSize] = ms.sizeCount[miniMatchSize] + 1
-	} else if (ms.expectReceiveSize != 0) {
+	} else if ms.checkFinish() {
 		ms.sizeCount[readSize] = 1
 	}
 
-
-
-	mostFrequentSize := ms.packageBaseSize
-	miniSize := ms.packageBaseSize
+	mostFrequentSize := ms.tcpWindowSize
+	miniSize := ms.tcpWindowSize
 	mostFrequentCount := int64(0)
 	for size, count := range ms.sizeCount  {
 		if count > mostFrequentCount {
@@ -135,62 +217,33 @@ func (ms *MysqlSession) ReadFromClient(bytes []byte)  {
 		}
 	}
 
-	ms.packageBaseSize = mostFrequentSize
-
-	// fmt.Printf("read %v bytes: %v\n", len(bytes), string(bytes))
-	fmt.Printf("ms.expectReceiveSize: %v\n", ms.expectReceiveSize)
-	fmt.Printf("ms.sizeCount: %#v\n", ms.sizeCount)
-	fmt.Printf("len(ms.tcpCache): %#v\n", len(ms.tcpCache))
-	fmt.Printf("packageComplete in read: %v\n", ms.packageComplete)
-	log.Infof("ms.packageBaseSize: %v", ms.packageBaseSize)
+	ms.tcpWindowSize = mostFrequentSize
 }
 
-func (ms *MysqlSession) ReadOnePackageFinish() bool {
-	if len(ms.tcpCache) == MaxPayloadLen {
-		return true
-	}
-
-	return false
-}
-
-func (ms *MysqlSession) ReadAllPackageFinish() bool {
-	// fmt.Printf("len(ms.tcpCache): %v\n", len(ms.tcpCache))
-	// fmt.Printf("ms.expectReceiveSize: %v\n", ms.expectReceiveSize)
-
-	if len(ms.tcpCache) < MaxPayloadLen {
-		return true
-	}
-
-	return false
-}
-
-func (ms *MysqlSession) ResetCache() {
-	ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
-	ms.tcpCache = ms.tcpCache[0:0]
-}
 
 func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	defer func() {
-		ms.tcpCache = ms.tcpCache[0:0]
-		ms.cachedStmtBytes = ms.cachedStmtBytes[0:0]
+		// ms.tcpCache = ms.tcpCache[0:0]
+		ms.cachedStmtBytes = nil
 		ms.expectReceiveSize = 0
 		ms.expectSendSize = 0
 		ms.prepareInfo = nil
-		ms.packageComplete = false
+		ms.coverRanges = make([]*jigsaw, 0, 4)
+		// ms.packageComplete = false
 	}()
 
-	if len(ms.cachedStmtBytes) < 1 && len(ms.tcpCache) < 1 {
+	if len(ms.cachedStmtBytes) < 1 {
 		return
 	}
 
 	// fmt.Printf("packageComplete in generate: %v\n", ms.packageComplete)
-	if !ms.packageComplete {
+	if !ms.checkFinish() {
+		log.Errorf("is not a complete cover")
 		return
 	}
 
 	var mqp *model.PooledMysqlQueryPiece
 	var querySQLInBytes []byte
-	ms.cachedStmtBytes = append(ms.cachedStmtBytes, ms.tcpCache...)
 	switch ms.cachedStmtBytes[0] {
 	case ComAuth:
 		var userName, dbName string
@@ -218,15 +271,13 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 	case ComCreateDB, ComQuery:
 		mqp = ms.composeQueryPiece()
-		querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
-		copy(querySQLInBytes, ms.cachedStmtBytes[1:])
+		querySQLInBytes = ms.cachedStmtBytes[1:]
 		querySQL := hack.String(querySQLInBytes)
 		mqp.QuerySQL = &querySQL
 
 	case ComStmtPrepare:
 		mqp = ms.composeQueryPiece()
-		querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
-		copy(querySQLInBytes, ms.cachedStmtBytes[1:])
+		querySQLInBytes = ms.cachedStmtBytes[1:]
 		querySQL := hack.String(querySQLInBytes)
 		mqp.QuerySQL = &querySQL
 		ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = &querySQL
