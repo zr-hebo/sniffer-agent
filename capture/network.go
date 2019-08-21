@@ -31,11 +31,16 @@ func init() {
 type networkCard struct {
 	name string
 	listenPort int
+	receiver chan model.QueryPiece
 }
 
 func NewNetworkCard() (nc *networkCard) {
 	// init device
-	return &networkCard{name: DeviceName, listenPort: snifferPort}
+	return &networkCard{
+		name: DeviceName,
+		listenPort: snifferPort,
+		receiver: make(chan model.QueryPiece, 100),
+	}
 }
 
 func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
@@ -81,7 +86,6 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 	if err != nil {
 		panic(err.Error())
 	}
-	handler.SnapLen()
 
 	return
 }
@@ -96,10 +100,8 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 
 // Listen get a connection.
 func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
-	receiver = make(chan model.QueryPiece, 100)
-
 	go func() {
-		handler := initEthernetHandlerFromPacpgo()
+		handler := initEthernetHandlerFromPacp()
 		for {
 			var data []byte
 			data, ci, err := handler.ZeroCopyReadPacketData()
@@ -113,11 +115,7 @@ func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
 			m := packet.Metadata()
 			m.CaptureInfo = ci
 			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
-
-			qp := nc.parseTCPPackage(packet)
-			if qp != nil {
-				receiver <- qp
-			}
+			nc.parseTCPPackage(packet)
 		}
 	}()
 
@@ -126,8 +124,13 @@ func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
 
 // Listen get a connection.
 func (nc *networkCard) listenInParallel() (receiver chan model.QueryPiece) {
-	receiver = make(chan model.QueryPiece, 100)
-	packageChan := make(chan gopacket.Packet, 10)
+	type captureInfo struct {
+		bytes []byte
+		captureInfo gopacket.CaptureInfo
+	}
+
+	rawDataChan := make(chan *captureInfo, 20)
+	packageChan := make(chan gopacket.Packet, 20)
 
 	// read packet
 	go func() {
@@ -146,33 +149,33 @@ func (nc *networkCard) listenInParallel() (receiver chan model.QueryPiece) {
 				continue
 			}
 
-			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
-			m := packet.Metadata()
-			m.CaptureInfo = ci
-			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
-
-			packageChan <- packet
+			rawDataChan <- &captureInfo{
+				bytes: data,
+				captureInfo: ci,
+			}
 		}
 	}()
 
-	// deal packet
+	// parse package
 	go func() {
 		defer func() {
 			close(receiver)
 		}()
 
-		for packet := range packageChan {
-			qp := nc.parseTCPPackage(packet)
-			if qp != nil {
-				receiver <- qp
-			}
+		for captureInfo := range rawDataChan {
+			packet := gopacket.NewPacket(captureInfo.bytes, layers.LayerTypeEthernet, gopacket.NoCopy)
+			m := packet.Metadata()
+			m.CaptureInfo = captureInfo.captureInfo
+			m.Truncated = m.Truncated || captureInfo.captureInfo.CaptureLength < captureInfo.captureInfo.Length
+
+			nc.parseTCPPackage(packet)
 		}
 	}()
 
 	return
 }
 
-func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPiece) {
+func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -180,8 +183,8 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 		}
 	}()
 
-	tcpConn := packet.TransportLayer().(*layers.TCP)
-	if tcpConn.SYN || tcpConn.RST {
+	tcpPkt := packet.TransportLayer().(*layers.TCP)
+	if tcpPkt.SYN || tcpPkt.RST {
 		return
 	}
 
@@ -200,18 +203,18 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 	// get IP from ip layer
 	srcIP := ipInfo.SrcIP.String()
 	dstIP := ipInfo.DstIP.String()
-	srcPort := int(tcpConn.SrcPort)
-	dstPort := int(tcpConn.DstPort)
+	srcPort := int(tcpPkt.SrcPort)
+	dstPort := int(tcpPkt.DstPort)
 	if dstPort == nc.listenPort {
 		// deal mysql server response
-		err = readToServerPackage(&srcIP, srcPort, tcpConn)
+		err = readToServerPackage(&srcIP, srcPort, tcpPkt, nc.receiver)
 		if err != nil {
 			return
 		}
 
 	} else if srcPort == nc.listenPort {
 		// deal mysql client request
-		qp, err = readFromServerPackage(&dstIP, dstPort, tcpConn)
+		err = readFromServerPackage(&dstIP, dstPort, tcpPkt)
 		if err != nil {
 			return
 		}
@@ -220,38 +223,40 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) (qp model.QueryPi
 	return
 }
 
-func readFromServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (qp model.QueryPiece, err error) {
+func readFromServerPackage(
+	srcIP *string, srcPort int, tcpPkt *layers.TCP) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read Mysql package send from mysql server to client failed <-- %s", err.Error())
 		}
 	}()
 
-	if tcpConn.FIN {
+	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
 		delete(sessionPool, *sessionKey)
 		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
 
-	tcpPayload := tcpConn.Payload
+	tcpPayload := tcpPkt.Payload
 	if (len(tcpPayload) < 1) {
 		return
 	}
 
-	_ = tcpConn.Seq
-
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
-		session.ReadFromServer(tcpPayload)
-		qp = session.GenerateQueryPiece()
+		// session.ReadFromServer(tcpPayload)
+		// qp = session.GenerateQueryPiece()
+		pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Ack), false)
+		session.ReceiveTCPPacket(pkt)
 	}
 
 	return
 }
 
-func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err error) {
+func readToServerPackage(
+	srcIP *string, srcPort int, tcpPkt *layers.TCP, receiver chan model.QueryPiece) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read package send from client to mysql server failed <-- %s", err.Error())
@@ -259,14 +264,14 @@ func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err e
 	}()
 
 	// when client try close connection remove session from session pool
-	if tcpConn.FIN {
+	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
 		delete(sessionPool, *sessionKey)
 		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
 
-	tcpPayload := tcpConn.Payload
+	tcpPayload := tcpPkt.Payload
 	if (len(tcpPayload) < 1) {
 		return
 	}
@@ -274,12 +279,15 @@ func readToServerPackage(srcIP *string, srcPort int, tcpConn *layers.TCP) (err e
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session == nil {
-		session = sd.NewSession(sessionKey, srcIP, srcPort, localIPAddr, snifferPort)
+		session = sd.NewSession(sessionKey, srcIP, srcPort, localIPAddr, snifferPort, receiver)
 		sessionPool[*sessionKey] = session
 	}
 
-	session.ResetBeginTime()
-	session.ReadFromClient(int64(tcpConn.Seq), tcpPayload)
+	pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Seq), true)
+	session.ReceiveTCPPacket(pkt)
+
+	// session.ResetBeginTime()
+	// session.ReadFromClient(int64(tcpPkt.Seq), tcpPayload)
 	return
 }
 

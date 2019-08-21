@@ -3,12 +3,14 @@ package capture
 import (
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 	log "github.com/sirupsen/logrus"
+	"sync"
 )
 
 var (
 	localIPAddr *string
 
 	sessionPool = make(map[string]sd.ConnSession)
+	sessionPoolLock sync.Mutex
 )
 
 func init() {
