@@ -27,7 +27,7 @@ type MysqlQueryPiece struct {
 	VisitUser    *string `json:"user"`
 	VisitDB      *string `json:"db"`
 	QuerySQL     *string `json:"sql"`
-	BeginTime    string  `json:"bt"`
+	BeginTime    int64  `json:"bt"`
 	CostTimeInMS int64   `json:"cms"`
 }
 
@@ -66,7 +66,7 @@ func NewPooledMysqlQueryPiece(
 	mqp.VisitUser = visitUser
 	mqp.VisitDB = visitDB
 	mqp.SyncSend = false
-	mqp.BeginTime = time.Unix(stmtBeginTime/1000, 0).Format(datetimeFormat)
+	mqp.BeginTime = stmtBeginTime
 	mqp.CostTimeInMS = nowInMS - stmtBeginTime
 	mqp.recoverPool = mqpp
 
