@@ -71,7 +71,7 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
-	_ = handler.SetCaptureLength(65535)
+	_ = handler.SetCaptureLength(1024*1024*10)
 
 	return
 }
@@ -92,16 +92,19 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 	if inParallel {
-		return nc.listenInParallel()
+		nc.listenInParallel()
+
+	} else {
+		nc.listenNormal()
 	}
 
-	return nc.listenNormal()
+	return nc.receiver
 }
 
 // Listen get a connection.
-func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
+func (nc *networkCard) listenNormal() {
 	go func() {
-		handler := initEthernetHandlerFromPacp()
+		handler := initEthernetHandlerFromPacpgo()
 		for {
 			var data []byte
 			data, ci, err := handler.ZeroCopyReadPacketData()
@@ -123,7 +126,7 @@ func (nc *networkCard) listenNormal() (receiver chan model.QueryPiece) {
 }
 
 // Listen get a connection.
-func (nc *networkCard) listenInParallel() (receiver chan model.QueryPiece) {
+func (nc *networkCard) listenInParallel() {
 	type captureInfo struct {
 		bytes []byte
 		captureInfo gopacket.CaptureInfo
@@ -158,16 +161,19 @@ func (nc *networkCard) listenInParallel() (receiver chan model.QueryPiece) {
 
 	// parse package
 	go func() {
-		defer func() {
-			close(receiver)
-		}()
-
 		for captureInfo := range rawDataChan {
 			packet := gopacket.NewPacket(captureInfo.bytes, layers.LayerTypeEthernet, gopacket.NoCopy)
 			m := packet.Metadata()
 			m.CaptureInfo = captureInfo.captureInfo
 			m.Truncated = m.Truncated || captureInfo.captureInfo.CaptureLength < captureInfo.captureInfo.Length
 
+			packageChan <- packet
+		}
+	}()
+
+	// parse package
+	go func() {
+		for packet := range packageChan {
 			nc.parseTCPPackage(packet)
 		}
 	}()
@@ -246,7 +252,7 @@ func readFromServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
-		// session.ReadFromServer(tcpPayload)
+		// session.readFromServer(tcpPayload)
 		// qp = session.GenerateQueryPiece()
 		pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Ack), false)
 		session.ReceiveTCPPacket(pkt)
@@ -286,8 +292,6 @@ func readToServerPackage(
 	pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Seq), true)
 	session.ReceiveTCPPacket(pkt)
 
-	// session.ResetBeginTime()
-	// session.ReadFromClient(int64(tcpPkt.Seq), tcpPayload)
 	return
 }
 

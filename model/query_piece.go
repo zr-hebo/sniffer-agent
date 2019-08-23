@@ -18,8 +18,9 @@ type QueryPiece interface {
 
 // MysqlQueryPiece 查询信息
 type MysqlQueryPiece struct {
-	SessionID    *string `json:"sid"`
-	ClientHost   *string `json:"-"`
+	SessionID    *string `json:"-"`
+	ClientHost   *string `json:"cip"`
+	ClientPort   int     `json:"cport"`
 	SyncSend     bool    `json:"-"`
 	ServerIP     *string `json:"sip"`
 	ServerPort   int     `json:"sport"`
@@ -45,7 +46,8 @@ var (
 )
 
 func NewPooledMysqlQueryPiece(
-	sessionID, visitUser, visitDB, clientHost, serverIP *string, serverPort int, stmtBeginTime int64) (
+	sessionID, clientIP, visitUser, visitDB, clientHost, serverIP *string,
+	clientPort, serverPort int, stmtBeginTime int64) (
 	mqp *PooledMysqlQueryPiece) {
 	mqp = mqpp.Dequeue()
 	if mqp == nil {
@@ -56,6 +58,8 @@ func NewPooledMysqlQueryPiece(
 
 	nowInMS := time.Now().UnixNano() / millSecondUnit
 	mqp.SessionID = sessionID
+	mqp.ClientHost = clientIP
+	mqp.ClientPort = clientPort
 	mqp.ClientHost = clientHost
 	mqp.ServerIP = serverIP
 	mqp.ServerPort = serverPort
