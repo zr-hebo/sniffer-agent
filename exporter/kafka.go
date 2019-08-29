@@ -99,7 +99,7 @@ func (ke *kafkaExporter) Export (qp model.QueryPiece) (err error){
 	if qp.NeedSyncSend() {
 		// log.Debugf("deal ddl: %s\n", *qp.String())
 
-		msg := &sarama.ProducerMessage{
+		msg := &sarama.ProducerMessage {
 			Topic: ke.syncTopic,
 			Value: sarama.ByteEncoder(qp.Bytes()),
 		}
@@ -110,7 +110,7 @@ func (ke *kafkaExporter) Export (qp model.QueryPiece) (err error){
 
 	} else {
 		// log.Debugf("deal non ddl: %s", *qp.String())
-		msg := &sarama.ProducerMessage{
+		msg := &sarama.ProducerMessage {
 			Topic: ke.asyncTopic,
 			Value: sarama.ByteEncoder(qp.Bytes()),
 		}

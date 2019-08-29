@@ -26,7 +26,7 @@ type MysqlSession struct {
 	coverRanges              []*jigsaw
 	expectSendSize           int
 	prepareInfo              *prepareInfo
-	cachedPrepareStmt        map[int]*string
+	cachedPrepareStmt        map[int][]byte
 	cachedStmtBytes          []byte
 	computeWindowSizeCounter int
 
@@ -63,7 +63,7 @@ func NewMysqlSession(
 		serverIP:           serverIP,
 		serverPort:         serverPort,
 		stmtBeginTime:      time.Now().UnixNano() / millSecondUnit,
-		cachedPrepareStmt:  make(map[int]*string, 8),
+		cachedPrepareStmt:  make(map[int][]byte, 8),
 		coverRanges:        make([]*jigsaw, 0, 4),
 		queryPieceReceiver: receiver,
 		closeConn:          make(chan bool, 1),
@@ -71,55 +71,6 @@ func NewMysqlSession(
 		ignoreAckID:        -1,
 		sendSize:           0,
 		pkgCacheLock:       sync.Mutex{},
-	}
-
-	return
-}
-
-
-func (ms *MysqlSession) dealTCPPacket() {
-	for {
-		select {
-		case closeConn := <-ms.closeConn:
-
-			if closeConn {
-				return
-			}
-
-		default:
-			if len(ms.tcpPacketCache) > 0 {
-				ms.parseTCPPacket()
-
-			} else {
-				log.Debugf("no package need deal in session:%s, so sleep", *ms.connectionID)
-				time.Sleep(time.Second)
-			}
-		}
-	}
-}
-
-func (ms *MysqlSession) parseTCPPacket() {
-	ms.pkgCacheLock.Lock()
-	var pkg *model.TCPPacket
-	if len(ms.tcpPacketCache) < 1 {
-		ms.pkgCacheLock.Unlock()
-		return
-	}
-
-	pkg = ms.tcpPacketCache[0]
-	ms.tcpPacketCache = ms.tcpPacketCache[1:]
-	ms.pkgCacheLock.Unlock()
-
-	if pkg.ToServer {
-		ms.resetBeginTime()
-		ms.readFromClient(pkg.Seq, pkg.Payload)
-
-	} else {
-		ms.readFromServer(pkg.Payload)
-		qp := ms.GenerateQueryPiece()
-		if qp != nil {
-			ms.queryPieceReceiver <- qp
-		}
 	}
 
 	return
@@ -150,27 +101,6 @@ func (ms *MysqlSession) ReceiveTCPPacket(newPkt *model.TCPPacket) {
 			ms.queryPieceReceiver <- qp
 		}
 	}
-
-	// ms.pkgCacheLock.Lock()
-	// defer ms.pkgCacheLock.Unlock()
-	//
-	// insertIdx := len(ms.tcpPacketCache)
-	// for idx, pkt := range ms.tcpPacketCache {
-	// 	if pkt.Seq > newPkt.Seq {
-	// 		insertIdx = idx
-	// 	}
-	// }
-	//
-	// if insertIdx == len(ms.tcpPacketCache) {
-	// 	ms.tcpPacketCache = append(ms.tcpPacketCache, newPkt)
-	// } else {
-	// 	newCache := make([]*model.TCPPacket, len(ms.tcpPacketCache)+1)
-	// 	copy(newCache[:insertIdx], ms.tcpPacketCache[:insertIdx])
-	// 	newCache[insertIdx] = newPkt
-	// 	copy(newCache[insertIdx+1:], ms.tcpPacketCache[insertIdx:])
-	// 	ms.tcpPacketCache = newCache
-	// }
-
 }
 
 func (ms *MysqlSession) resetBeginTime() {
@@ -375,13 +305,15 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		querySQLInBytes = ms.cachedStmtBytes[1:]
 		querySQL := hack.String(querySQLInBytes)
 		mqp.QuerySQL = &querySQL
-		ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = &querySQL
+		ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = querySQLInBytes
 		log.Debugf("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
 
 	case ComStmtExecute:
 		prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
 		mqp = ms.composeQueryPiece()
-		mqp.QuerySQL = ms.cachedPrepareStmt[prepareStmtID]
+		querySQLInBytes = ms.cachedPrepareStmt[prepareStmtID]
+		querySQL := hack.String(querySQLInBytes)
+		mqp.QuerySQL = &querySQL
 		log.Debugf("execute prepare statement:%d", prepareStmtID)
 
 	case ComStmtClose:
