@@ -90,6 +90,7 @@ apt-get install libpcap-dev
 
 #### 风险提示
 1.sniffer-agent使用了pacp抓包，根据pacp抓包原理，在IO较高的时候有一定的概率丢包；
+
 2.sniffer-agent提供了Prepare语句的支持，但是如果sniffer-agent在prepare语句初始化之后启动，就无法抓取prepare语句；
 
 ### License
