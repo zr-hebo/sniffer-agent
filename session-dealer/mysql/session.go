@@ -270,11 +270,10 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	var mqp *model.PooledMysqlQueryPiece
 	var querySQLInBytes []byte
 	if ms.cachedStmtBytes[0] > 32 {
-		var userName, dbName string
-		var err error
-		userName, dbName, err = parseAuthInfo(ms.cachedStmtBytes)
+		userName, dbName, err := parseAuthInfo(ms.cachedStmtBytes)
 		if err != nil {
 			log.Errorf("parse auth info failed <-- %s", err.Error())
+			return
 		}
 		ms.visitUser = &userName
 		ms.visitDB = &dbName
