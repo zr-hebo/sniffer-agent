@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/siddontang/go/hack"
 	log "github.com/sirupsen/logrus"
+	"github.com/pingcap/tidb/util/hack"
 	"github.com/zr-hebo/sniffer-agent/model"
 )
 
@@ -269,8 +269,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 	var mqp *model.PooledMysqlQueryPiece
 	var querySQLInBytes []byte
-	switch ms.cachedStmtBytes[0] {
-	case ComAuth:
+	if ms.cachedStmtBytes[0] > 32 {
 		var userName, dbName string
 		var err error
 		userName, dbName, err = parseAuthInfo(ms.cachedStmtBytes)
@@ -280,50 +279,55 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		ms.visitUser = &userName
 		ms.visitDB = &dbName
 
-	case ComInitDB:
-		newDBName := string(ms.cachedStmtBytes[1:])
-		useSQL := fmt.Sprintf("use %s", newDBName)
-		mqp = ms.composeQueryPiece()
-		mqp.QuerySQL = &useSQL
-		// update session database
-		ms.visitDB = &newDBName
+	} else {
+		switch ms.cachedStmtBytes[0] {
+		case ComInitDB:
+			newDBName := string(ms.cachedStmtBytes[1:])
+			useSQL := fmt.Sprintf("use %s", newDBName)
+			querySQLInBytes = hack.Slice(useSQL)
+			mqp = ms.composeQueryPiece()
+			mqp.QuerySQL = &useSQL
+			// update session database
+			ms.visitDB = &newDBName
 
-	case ComDropDB:
-		dbName := string(ms.cachedStmtBytes[1:])
-		dropSQL := fmt.Sprintf("drop database %s", dbName)
-		mqp = ms.composeQueryPiece()
-		mqp.QuerySQL = &dropSQL
+		case ComDropDB:
+			dbName := string(ms.cachedStmtBytes[1:])
+			dropSQL := fmt.Sprintf("drop database %s", dbName)
+			mqp = ms.composeQueryPiece()
+			mqp.QuerySQL = &dropSQL
 
-	case ComCreateDB, ComQuery:
-		mqp = ms.composeQueryPiece()
-		querySQLInBytes = ms.cachedStmtBytes[1:]
-		querySQL := hack.String(querySQLInBytes)
-		mqp.QuerySQL = &querySQL
+		case ComCreateDB, ComQuery:
+			mqp = ms.composeQueryPiece()
+			querySQLInBytes = ms.cachedStmtBytes[1:]
+			querySQL := hack.String(querySQLInBytes)
+			mqp.QuerySQL = &querySQL
 
-	case ComStmtPrepare:
-		mqp = ms.composeQueryPiece()
-		querySQLInBytes = ms.cachedStmtBytes[1:]
-		querySQL := hack.String(querySQLInBytes)
-		mqp.QuerySQL = &querySQL
-		ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = querySQLInBytes
-		log.Debugf("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
+		case ComStmtPrepare:
+			mqp = ms.composeQueryPiece()
+			querySQLInBytes = ms.cachedStmtBytes[1:]
+			querySQL := hack.String(querySQLInBytes)
+			mqp.QuerySQL = &querySQL
+			ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = querySQLInBytes
+			log.Debugf("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
 
-	case ComStmtExecute:
-		prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
-		mqp = ms.composeQueryPiece()
-		querySQLInBytes = ms.cachedPrepareStmt[prepareStmtID]
-		querySQL := hack.String(querySQLInBytes)
-		mqp.QuerySQL = &querySQL
-		log.Debugf("execute prepare statement:%d", prepareStmtID)
+		case ComStmtExecute:
+			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
+			mqp = ms.composeQueryPiece()
+			querySQLInBytes = ms.cachedPrepareStmt[prepareStmtID]
+			querySQL := hack.String(querySQLInBytes)
+			mqp.QuerySQL = &querySQL
+			log.Debugf("execute prepare statement:%d", prepareStmtID)
 
-	case ComStmtClose:
-		prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
-		delete(ms.cachedPrepareStmt, prepareStmtID)
-		log.Debugf("remove prepare statement:%d", prepareStmtID)
+		case ComStmtClose:
+			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
+			delete(ms.cachedPrepareStmt, prepareStmtID)
+			log.Debugf("remove prepare statement:%d", prepareStmtID)
 
-	default:
-		return
+		default:
+			return
+		}
 	}
+
 
 	if strictMode && mqp != nil && mqp.VisitUser == nil {
 		user, db, err := querySessionInfo(ms.serverPort, mqp.SessionID)
@@ -341,10 +345,12 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (model.QueryPiece) {
 	if mqp == nil || querySQL == nil {
 		return nil
-
-	} else if (uselessSQLPattern.Match(querySQL)) {
-		return nil
 	}
+	/*
+	 else if (uselessSQLPattern.Match(querySQL)) {
+			return nil
+		}
+	*/
 
 	if ddlPatern.Match(querySQL) {
 		mqp.SetNeedSyncSend(true)
