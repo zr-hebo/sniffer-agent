@@ -85,6 +85,14 @@ apt-get install libpcap-dev
 另外mysql-sniffer使用c++开发，平台的适用性较差，后期扩展较难。
 开发的过程中也借鉴了这些产品的思想，另外在MySQL包解析的时候，参考了一些 [Vitess](https://github.com/vitessio/vitess) 和 [TiDB](https://github.com/pingcap/tidb) 的内容，部分私有变量和函数直接复制使用，这里向这些优秀的产品致敬，如有侵权请随时联系。
 
+#### 结果分析
+在压测的过程中和mysql-sniffer进行了结果对比，压测执行28万条语句，mysql-sniffer抓取了8千条，sniffer-agent抓取了30万条语句（其中包含client自动生成的语句）
+
+#### 风险提示
+1.sniffer-agent使用了pacp抓包，根据pacp抓包原理，在IO较高的时候有一定的概率丢包；
+
+2.sniffer-agent提供了Prepare语句的支持，但是如果sniffer-agent在prepare语句初始化之后启动，就无法抓取prepare语句；
+
 ### License
 [MIT](https://opensource.org/licenses/MIT)
 
