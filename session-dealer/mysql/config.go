@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	uselessSQLPattern = regexp.MustCompile(`(?i)^\s*(select 1|select @@version_comment limit 1|commit|begin)`)
+	uselessSQLPattern = regexp.MustCompile(`(?i)^\s*(select @@version_comment limit 1)`)
 	ddlPatern = regexp.MustCompile(`(?i)^\s*(create|alter|drop)`)
 )
 

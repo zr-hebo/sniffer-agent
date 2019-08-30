@@ -345,12 +345,10 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (model.QueryPiece) {
 	if mqp == nil || querySQL == nil {
 		return nil
+
+	} else if (uselessSQLPattern.Match(querySQL)) {
+		return nil
 	}
-	/*
-	 else if (uselessSQLPattern.Match(querySQL)) {
-			return nil
-		}
-	*/
 
 	if ddlPatern.Match(querySQL) {
 		mqp.SetNeedSyncSend(true)
