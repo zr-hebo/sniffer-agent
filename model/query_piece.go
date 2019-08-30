@@ -18,9 +18,9 @@ type QueryPiece interface {
 
 // MysqlQueryPiece 查询信息
 type MysqlQueryPiece struct {
-	SessionID    *string `json:"-"`
-	ClientHost   *string `json:"cip"`
-	ClientPort   int     `json:"cport"`
+	SessionID    *string `json:"cid"`
+	ClientHost   *string `json:"-"`
+	ClientPort   int     `json:"-"`
 	SyncSend     bool    `json:"-"`
 	ServerIP     *string `json:"sip"`
 	ServerPort   int     `json:"sport"`

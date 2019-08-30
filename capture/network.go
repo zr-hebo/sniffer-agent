@@ -71,7 +71,7 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
-	_ = handler.SetCaptureLength(65535)
+	_ = handler.SetCaptureLength(1024*1024*5)
 
 	return
 }
