@@ -41,7 +41,7 @@ const (
 )
 
 const (
-	ComAuth = 141
+	maxSQLLen = 5*1024*1024
 )
 
 // Client information.

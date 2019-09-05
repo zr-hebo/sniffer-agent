@@ -14,11 +14,11 @@ function execute_real(){
     sleep 1
     mysql -h$mysql_host -P$mysql_port -u$user_name -p$passwd sniffer -e ""
     sleep 1
-    insert_cmd="insert into unibase.haha(id, name) values(10, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')"
-    insert_cmd="$insert_cmd,(10, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')"
-    insert_cmd="$insert_cmd,(10, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')"
-    insert_cmd="$insert_cmd,(10, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')"
-    insert_cmd="$insert_cmd,(10, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')"
+    insert_cmd="insert into unibase.haha(id, name) values(10, 'aaaa')"
+    insert_cmd="$insert_cmd,(10, 'aaaa')"
+    insert_cmd="$insert_cmd,(10, 'aaaa')"
+    insert_cmd="$insert_cmd,(10, 'aaaa')"
+    insert_cmd="$insert_cmd,(10, 'aaaa')"
     mysql -h$mysql_host -P$mysql_port -u$user_name -p$passwd sniffer -e "$insert_cmd"
     sleep 1
     mysql -h$mysql_host -P$mysql_port -u$user_name -p$passwd sniffer -e "use unibase; select * from haha; drop table haha"

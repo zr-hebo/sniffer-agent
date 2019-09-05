@@ -6,7 +6,9 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"github.com/zr-hebo/sniffer-agent/communicator"
 	"golang.org/x/net/bpf"
+	"math/rand"
 	"time"
 
 	"github.com/google/gopacket/pcapgo"
@@ -112,6 +114,20 @@ func (nc *networkCard) listenNormal() {
 				log.Error(err.Error())
 				time.Sleep(time.Second*3)
 				continue
+			}
+
+			// throw packets according to a certain probability
+			throwPacketRate := communicator.GetConfig(communicator.THROW_PACKET_RATE).(float64)
+			if throwPacketRate >= 1.0 {
+				time.Sleep(time.Second*3)
+				continue
+
+			} else if 0 < throwPacketRate && throwPacketRate < 1.0 {
+				// fall into throw range
+				rn := rand.Float64()
+				if rn <= throwPacketRate {
+					continue
+				}
 			}
 
 			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)

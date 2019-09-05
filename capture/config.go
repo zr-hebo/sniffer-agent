@@ -1,16 +1,17 @@
 package capture
 
 import (
-	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 	log "github.com/sirupsen/logrus"
-	"sync"
+	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
+	"math/rand"
+	"time"
 )
 
 var (
 	localIPAddr *string
 
 	sessionPool = make(map[string]sd.ConnSession)
-	sessionPoolLock sync.Mutex
+	// sessionPoolLock sync.Mutex
 )
 
 func init() {
@@ -21,4 +22,6 @@ func init() {
 
 	localIPAddr = &ipAddr
 	log.Infof("parsed local ip address:%s", *localIPAddr)
+
+	rand.Seed(time.Now().UnixNano())
 }

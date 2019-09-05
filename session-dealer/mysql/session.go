@@ -24,6 +24,7 @@ type MysqlSession struct {
 	packageOffset            int64
 	expectReceiveSize        int
 	coverRanges              []*jigsaw
+	coverRange               *jigsaw
 	expectSendSize           int
 	prepareInfo              *prepareInfo
 	cachedPrepareStmt        map[int][]byte
@@ -137,6 +138,7 @@ func mergeRanges(currRange *jigsaw, pkgRanges []*jigsaw) (mergedRange *jigsaw, n
 		return currRange, newPkgRanges
 
 	} else if len(pkgRanges) == 1 {
+		//
 		nextRange = pkgRanges[0]
 
 	} else {
@@ -253,6 +255,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		ms.expectSendSize = 0
 		ms.prepareInfo = nil
 		ms.coverRanges = make([]*jigsaw, 0, 4)
+		ms.coverRange = nil
 		ms.lastSeq = -1
 		ms.ignoreAckID = -1
 		ms.sendSize = 0
@@ -264,6 +267,11 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 	if !ms.checkFinish() {
 		log.Debugf("receive a not complete cover")
+		return
+	}
+
+	if len(ms.cachedStmtBytes) > maxSQLLen {
+		log.Warn("sql in cache is too long, ignore it")
 		return
 	}
 
@@ -326,7 +334,6 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 			return
 		}
 	}
-
 
 	if strictMode && mqp != nil && mqp.VisitUser == nil {
 		user, db, err := querySessionInfo(ms.serverPort, mqp.SessionID)

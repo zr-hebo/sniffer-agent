@@ -102,6 +102,10 @@
 			"Rev": "a096ffc9ada929bb7d920224cad058207d95054b"
 		},
 		{
+			"ImportPath": "github.com/zr-hebo/validator",
+			"Rev": "f57849af19b4b7782c8151eda271eac1b701943b"
+		},
+		{
 			"ImportPath": "golang.org/x/crypto/ssh/terminal",
 			"Rev": "eb71ad9bd329b5ac0fd0148dd99bd62e8be8e035"
 		},
