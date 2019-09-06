@@ -27,6 +27,7 @@ type MysqlQueryPiece struct {
 	VisitUser    *string `json:"user"`
 	VisitDB      *string `json:"db"`
 	QuerySQL     *string `json:"sql"`
+	ThrowPacketRate    float64  `json:"tpr"`
 	BeginTime    int64  `json:"bt"`
 	CostTimeInMS int64   `json:"cms"`
 }
@@ -47,7 +48,7 @@ var (
 
 func NewPooledMysqlQueryPiece(
 	sessionID, clientIP, visitUser, visitDB, clientHost, serverIP *string,
-	clientPort, serverPort int, stmtBeginTime int64) (
+	clientPort, serverPort int, throwPacketRate float64, stmtBeginTime int64) (
 	mqp *PooledMysqlQueryPiece) {
 	mqp = mqpp.Dequeue()
 	if mqp == nil {
@@ -66,6 +67,7 @@ func NewPooledMysqlQueryPiece(
 	mqp.VisitUser = visitUser
 	mqp.VisitDB = visitDB
 	mqp.SyncSend = false
+	mqp.ThrowPacketRate = throwPacketRate
 	mqp.BeginTime = stmtBeginTime
 	mqp.CostTimeInMS = nowInMS - stmtBeginTime
 	mqp.recoverPool = mqpp

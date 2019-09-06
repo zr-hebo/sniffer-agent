@@ -73,13 +73,13 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
-	_ = handler.SetCaptureLength(1024*1024*5)
+	_ = handler.SetCaptureLength(65536)
 
 	return
 }
 
 func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
-	handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
+	handler, err := pcap.OpenLive(DeviceName, 65536, false, pcap.BlockForever)
 	if err != nil {
 		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
 	}
@@ -256,7 +256,6 @@ func readFromServerPackage(
 	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
 		delete(sessionPool, *sessionKey)
-		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
 
