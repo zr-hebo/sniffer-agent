@@ -8,8 +8,15 @@ type handshakeResponse41 struct {
 	Auth       []byte
 }
 
-// receiveRange record mysql package begin and end seq id
-type receiveRange struct {
-	beginSeqID int64
-	endSeqID   int64
+// jigsaw record tcp package begin and end seq id
+type jigsaw struct {
+	begin int64
+	end   int64
+}
+
+func newJigsaw(begin, end int64) (js *jigsaw) {
+	return &jigsaw{
+		begin: begin,
+		end: end,
+	}
 }

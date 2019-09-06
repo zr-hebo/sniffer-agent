@@ -267,8 +267,6 @@ func readFromServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
-		// session.readFromServer(tcpPayload)
-		// qp = session.GenerateQueryPiece()
 		pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Ack), false)
 		session.ReceiveTCPPacket(pkt)
 	}
