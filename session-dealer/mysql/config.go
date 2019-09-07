@@ -15,6 +15,8 @@ var (
 	strictMode bool
 	adminUser string
 	adminPasswd string
+
+	coverRangePool = NewCoveragePool()
 )
 
 func init() {

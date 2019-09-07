@@ -34,3 +34,7 @@ func (tc *throwPacketRateConfig) setVal (val interface{}) (err error){
 func (tc *throwPacketRateConfig) getVal () (val interface{}){
 	return tc.value
 }
+
+func (tc *throwPacketRateConfig) GetValFloat64 () (val float64){
+	return tc.value
+}

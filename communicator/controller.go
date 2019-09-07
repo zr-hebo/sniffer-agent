@@ -81,3 +81,7 @@ func outletSetConfig(resp http.ResponseWriter, req *http.Request) {
 
 	mp.Err = SetConfig(ep.ConfigName, ep.Value)
 }
+
+func GetThrowPacketRate() float64 {
+	return throwPacketRate.value
+}

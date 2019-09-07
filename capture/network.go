@@ -117,7 +117,7 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			// throw packets according to a certain probability
-			throwPacketRate := communicator.GetConfig(communicator.THROW_PACKET_RATE).(float64)
+			throwPacketRate := communicator.GetThrowPacketRate()
 			if throwPacketRate >= 1.0 {
 				time.Sleep(time.Second*3)
 				continue

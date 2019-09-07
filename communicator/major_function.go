@@ -4,6 +4,11 @@ import "fmt"
 
 // SetConfig set config by config key(name) and value
 func SetConfig(key string, val interface{}) (err error) {
+	if key == throwPacketRate.name {
+		err = throwPacketRate.setVal(val)
+		return
+	}
+
 	configMapLock.Lock()
 	defer configMapLock.Unlock()
 

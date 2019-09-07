@@ -17,14 +17,14 @@ var (
 )
 
 var (
-	configMapLock sync.RWMutex
-	configMap map[string]configItem
+	configMapLock   sync.RWMutex
+	configMap       map[string]configItem
+	throwPacketRate *throwPacketRateConfig
 )
 
-func init()  {
+func init() {
 	flag.IntVar(&communicatePort, "communicate_port", 8088, "http server port. Default is 8088")
 
 	configMap = make(map[string]configItem)
-	tprc := newThrowPacketRateConfig()
-	configMap[tprc.name] = tprc
+	throwPacketRate = newThrowPacketRateConfig()
 }
