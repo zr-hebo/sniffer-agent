@@ -110,6 +110,9 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 			node.next = checkRange
 			node = nil
 			break
+
+		} else {
+			currRange = checkRange
 		}
 	}
 	if node != nil {
@@ -121,14 +124,16 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 
 func (crs *coverRanges) mergeRanges()  {
 	// merge ranges
-	currRange := crs.head;
-	if currRange.next != nil {
+	currRange := crs.head
+	for currRange.next != nil {
 		checkRange := currRange.next
 		if currRange.end >= checkRange.begin && currRange.end < checkRange.end {
 			currRange.end = checkRange.end
 			currRange.next = checkRange.next
-
 			checkRange.Recovery()
+
+		} else {
+			currRange = currRange.next
 		}
 	}
 }

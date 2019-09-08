@@ -182,17 +182,13 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 			log.Debugf("in session %s get outdate package with Seq:%d, beginSeq:%d",
 				*ms.connectionID, seqID, ms.beginSeqID)
 			return
-
-		} else if seqID + int64(len(bytes)) <= ms.beginSeqID {
-			// repeat packet
-			log.Debugf("receive repeat packet")
 		}
 
 		seqOffset := seqID - ms.beginSeqID
 		if seqOffset+contentSize > int64(len(ms.cachedStmtBytes)) {
 			// not in a normal mysql packet
 			log.Debugf("receive an unexpect packet")
-			// ms.clear()
+			 ms.clear()
 			return
 		}
 
