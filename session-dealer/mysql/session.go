@@ -115,7 +115,6 @@ func (ms *MysqlSession) checkFinish() bool {
 	}
 
 	checkNode := ms.coverRanges.head.next
-
 	if checkNode.end - checkNode.begin == int64(len(ms.cachedStmtBytes)) {
 		return true
 	}
