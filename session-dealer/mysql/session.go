@@ -110,11 +110,13 @@ func (ms *MysqlSession) readFromServer(bytes []byte) {
 }
 
 func (ms *MysqlSession) checkFinish() bool {
-	if ms.coverRanges.head == nil {
+	if ms.coverRanges.head == nil || ms.coverRanges.head.next == nil {
 		return false
 	}
 
-	if ms.coverRanges.head.end - ms.coverRanges.head.begin == int64(len(ms.cachedStmtBytes)) {
+	checkNode := ms.coverRanges.head.next
+
+	if checkNode.end - checkNode.begin == int64(len(ms.cachedStmtBytes)) {
 		return true
 	}
 

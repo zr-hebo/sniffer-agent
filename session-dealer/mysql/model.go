@@ -77,35 +77,29 @@ type coverRanges struct {
 }
 
 func NewCoverRanges() *coverRanges {
-	return &coverRanges{}
+	return &coverRanges{
+		head: &coverageNode{
+			begin: -1,
+		},
+	}
 }
 
 func (crs *coverRanges) clear() {
-	if crs.head == nil {
-		return
-	}
-
-	currRange := crs.head;
-	if currRange.next != nil {
+	currRange := crs.head.next;
+	if currRange != nil {
 		node := currRange
 		currRange = currRange.next
 		node.Recovery()
 	}
-	crs.head = nil
+	crs.head.next = nil
 }
 
 func (crs *coverRanges) addRange(node *coverageNode)  {
-	// empty cover ranges
-	if crs.head == nil {
-		crs.head = node
-		return
-	}
-
 	// insert range in asc order
 	var currRange = crs.head;
-	for currRange.next != nil {
+	for currRange != nil && currRange.next != nil {
 		checkRange := currRange.next
-		if checkRange.begin >= node.begin {
+		if checkRange != nil && checkRange.begin >= node.begin {
 			currRange.next = node
 			node.next = checkRange
 			node = nil
@@ -115,6 +109,7 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 			currRange = checkRange
 		}
 	}
+
 	if node != nil {
 		currRange.next = node
 	}
@@ -124,8 +119,8 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 
 func (crs *coverRanges) mergeRanges()  {
 	// merge ranges
-	currRange := crs.head
-	for currRange.next != nil {
+	currRange := crs.head.next
+	for currRange != nil && currRange.next != nil {
 		checkRange := currRange.next
 		if currRange.end >= checkRange.begin && currRange.end < checkRange.end {
 			currRange.end = checkRange.end
