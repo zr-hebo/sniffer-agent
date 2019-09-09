@@ -1,6 +1,9 @@
 package communicator
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 type configItem interface {
 	setVal (interface{}) error
@@ -9,13 +12,15 @@ type configItem interface {
 
 type throwPacketRateConfig struct {
 	name string
-	value float64
+	tcpTPR float64
+	mysqlTPR float64
 }
 
 func newThrowPacketRateConfig() (tpr *throwPacketRateConfig) {
 	tpr = &throwPacketRateConfig{
 		name: THROW_PACKET_RATE,
-		value: 0.0,
+		tcpTPR: 0.0,
+		mysqlTPR: 0.0,
 	}
 	return
 }
@@ -27,14 +32,11 @@ func (tc *throwPacketRateConfig) setVal (val interface{}) (err error){
 		return
 	}
 
-	tc.value = realVal
+	tc.mysqlTPR = realVal
+	tc.tcpTPR = math.Sqrt(realVal)
 	return
 }
 
 func (tc *throwPacketRateConfig) getVal () (val interface{}){
-	return tc.value
-}
-
-func (tc *throwPacketRateConfig) GetValFloat64 () (val float64){
-	return tc.value
+	return tc.mysqlTPR
 }

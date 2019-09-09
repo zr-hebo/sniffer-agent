@@ -3,6 +3,7 @@ package mysql
 import (
 	"flag"
 	"fmt"
+	"github.com/zr-hebo/sniffer-agent/model"
 	"regexp"
 )
 
@@ -17,6 +18,7 @@ var (
 	adminPasswd string
 
 	coverRangePool = NewCoveragePool()
+	localStmtCache = model.NewSliceBufferPool("statement cache", MaxMysqlPacketLen)
 )
 
 func init() {

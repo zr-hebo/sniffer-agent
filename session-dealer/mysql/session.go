@@ -122,7 +122,12 @@ func (ms *MysqlSession) checkFinish() bool {
 	return false
 }
 
+func (ms *MysqlSession) Close() {
+	ms.clear()
+}
+
 func (ms *MysqlSession) clear() {
+	localStmtCache.Enqueue(ms.cachedStmtBytes)
 	ms.cachedStmtBytes = nil
 	ms.expectReceiveSize = -1
 	ms.expectSendSize = -1
@@ -155,15 +160,13 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		ms.beginSeqID = seqID
 		ms.endSeqID = seqID
 
-		// if len(ms.cachedStmtBytes) > 0 {
-		// 	copy(newCache[:len(ms.cachedStmtBytes)], ms.cachedStmtBytes)
-		// }
+
 		if int64(ms.expectReceiveSize) < int64(len(contents)) {
 			log.Warnf("receive invalid mysql packet")
 			return
 		}
 
-		newCache := make([]byte, ms.expectReceiveSize)
+		newCache := localStmtCache.DequeueWithInit(ms.expectReceiveSize)
 		copy(newCache[:len(contents)], contents)
 		ms.cachedStmtBytes = newCache
 
@@ -310,5 +313,5 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (m
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
 	return model.NewPooledMysqlQueryPiece(
 		ms.connectionID, ms.clientHost, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP,
-		ms.clientPort, ms.serverPort, communicator.GetThrowPacketRate(), ms.stmtBeginTime)
+		ms.clientPort, ms.serverPort, communicator.GetMysqlThrowPacketRate(), ms.stmtBeginTime)
 }

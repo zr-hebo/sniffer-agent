@@ -117,7 +117,7 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			// throw packets according to a certain probability
-			throwPacketRate := communicator.GetThrowPacketRate()
+			throwPacketRate := communicator.GetTCPThrowPacketRate()
 			if throwPacketRate >= 1.0 {
 				time.Sleep(time.Second*3)
 				continue
@@ -255,7 +255,11 @@ func readFromServerPackage(
 
 	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
-		delete(sessionPool, *sessionKey)
+		session := sessionPool[*sessionKey]
+		if session != nil {
+			session.Close()
+			delete(sessionPool, *sessionKey)
+		}
 		return
 	}
 
@@ -285,7 +289,11 @@ func readToServerPackage(
 	// when client try close connection remove session from session pool
 	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
-		delete(sessionPool, *sessionKey)
+		session := sessionPool[*sessionKey]
+		if session != nil {
+			session.Close()
+			delete(sessionPool, *sessionKey)
+		}
 		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
