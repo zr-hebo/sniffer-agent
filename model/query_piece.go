@@ -1,12 +1,14 @@
 package model
 
 import (
+	"bytes"
+
 	"encoding/json"
+	// "github.com/json-iterator/go"
 	"time"
 
 	"github.com/pingcap/tidb/util/hack"
 )
-
 
 type QueryPiece interface {
 	String() *string
@@ -27,34 +29,33 @@ type MysqlQueryPiece struct {
 	VisitUser    *string `json:"user"`
 	VisitDB      *string `json:"db"`
 	QuerySQL     *string `json:"sql"`
+	ThrowPacketRate    float64  `json:"tpr"`
 	BeginTime    int64  `json:"bt"`
 	CostTimeInMS int64   `json:"cms"`
+
+	jsonContent     []byte    `json:"-"`
 }
 
 type PooledMysqlQueryPiece struct {
 	MysqlQueryPiece
 	recoverPool *mysqlQueryPiecePool
+	sliceBufferPool *sliceBufferPool
 }
 
 const (
-	datetimeFormat = "2006-01-02 15:04:05"
 	millSecondUnit = int64(time.Millisecond)
 )
 
 var (
 	mqpp = NewMysqlQueryPiecePool()
+	localSliceBufferPool = NewSliceBufferPool("json cache", 2*1024*1024)
 )
 
 func NewPooledMysqlQueryPiece(
 	sessionID, clientIP, visitUser, visitDB, clientHost, serverIP *string,
-	clientPort, serverPort int, stmtBeginTime int64) (
+	clientPort, serverPort int, throwPacketRate float64, stmtBeginTime int64) (
 	mqp *PooledMysqlQueryPiece) {
 	mqp = mqpp.Dequeue()
-	if mqp == nil {
-		mqp = &PooledMysqlQueryPiece{
-			MysqlQueryPiece: MysqlQueryPiece{},
-		}
-	}
 
 	nowInMS := time.Now().UnixNano() / millSecondUnit
 	mqp.SessionID = sessionID
@@ -66,9 +67,11 @@ func NewPooledMysqlQueryPiece(
 	mqp.VisitUser = visitUser
 	mqp.VisitDB = visitDB
 	mqp.SyncSend = false
+	mqp.ThrowPacketRate = throwPacketRate
 	mqp.BeginTime = stmtBeginTime
 	mqp.CostTimeInMS = nowInMS - stmtBeginTime
 	mqp.recoverPool = mqpp
+	mqp.sliceBufferPool = localSliceBufferPool
 
 	return
 }
@@ -79,13 +82,23 @@ func (mqp *MysqlQueryPiece) String() (*string) {
 	return &contentStr
 }
 
-func (mqp *MysqlQueryPiece) Bytes() (bytes []byte) {
-	content, err := json.Marshal(mqp)
-	if err != nil {
-		return []byte(err.Error())
+func (mqp *MysqlQueryPiece) Bytes() (content []byte) {
+	// content, err := json.Marshal(mqp)
+	if len(mqp.jsonContent) > 0 {
+		return mqp.jsonContent
 	}
 
-	return content
+	var cacheBuffer = localSliceBufferPool.Dequeue()
+	buffer := bytes.NewBuffer(cacheBuffer)
+	err := json.NewEncoder(buffer).Encode(mqp)
+	if err != nil {
+		mqp.jsonContent = []byte(err.Error())
+
+	} else {
+		mqp.jsonContent = buffer.Bytes()
+	}
+
+	return mqp.jsonContent
 }
 
 func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
@@ -102,4 +115,6 @@ func (mqp *MysqlQueryPiece) SetNeedSyncSend(syncSend bool) {
 
 func (pmqp *PooledMysqlQueryPiece) Recovery() {
 	pmqp.recoverPool.Enqueue(pmqp)
+	pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
+	pmqp.jsonContent = nil
 }

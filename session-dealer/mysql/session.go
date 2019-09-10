@@ -2,12 +2,12 @@ package mysql
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/pingcap/tidb/util/hack"
+	log "github.com/sirupsen/logrus"
+	"github.com/zr-hebo/sniffer-agent/communicator"
 	"github.com/zr-hebo/sniffer-agent/model"
 )
 
@@ -20,11 +20,11 @@ type MysqlSession struct {
 	serverIP                 *string
 	serverPort               int
 	stmtBeginTime            int64
-	beginSeqID               int64
-	packageOffset            int64
+	// packageOffset            int64
+	beginSeqID        int64
+	endSeqID        int64
+	coverRanges              *coverRanges
 	expectReceiveSize        int
-	coverRanges              []*jigsaw
-	coverRange               *jigsaw
 	expectSendSize           int
 	prepareInfo              *prepareInfo
 	cachedPrepareStmt        map[int][]byte
@@ -34,7 +34,6 @@ type MysqlSession struct {
 	tcpPacketCache []*model.TCPPacket
 
 	queryPieceReceiver chan model.QueryPiece
-	lastSeq            int64
 	closeConn          chan bool
 	pkgCacheLock       sync.Mutex
 
@@ -45,14 +44,6 @@ type MysqlSession struct {
 type prepareInfo struct {
 	prepareStmtID int
 }
-
-var (
-	windowSizeCache = make(map[string]*packageWindowCounter, 16)
-)
-
-const (
-	maxIPPackageSize = 1 << 16
-)
 
 func NewMysqlSession(
 	sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int,
@@ -65,10 +56,10 @@ func NewMysqlSession(
 		serverPort:         serverPort,
 		stmtBeginTime:      time.Now().UnixNano() / millSecondUnit,
 		cachedPrepareStmt:  make(map[int][]byte, 8),
-		coverRanges:        make([]*jigsaw, 0, 4),
 		queryPieceReceiver: receiver,
 		closeConn:          make(chan bool, 1),
-		lastSeq:            -1,
+		expectReceiveSize:  -1,
+		coverRanges: NewCoverRanges(),
 		ignoreAckID:        -1,
 		sendSize:           0,
 		pkgCacheLock:       sync.Mutex{},
@@ -118,84 +109,48 @@ func (ms *MysqlSession) readFromServer(bytes []byte) {
 	}
 }
 
-func (ms *MysqlSession) mergeRanges() {
-	if len(ms.coverRanges) > 1 {
-		newRange, newPkgRanges := mergeRanges(ms.coverRanges[0], ms.coverRanges[1:])
-		tmpRanges := make([]*jigsaw, len(newPkgRanges)+1)
-		tmpRanges[0] = newRange
-		if len(newPkgRanges) > 0 {
-			copy(tmpRanges[1:], newPkgRanges)
-		}
-		ms.coverRanges = tmpRanges
-	}
-}
-
-func mergeRanges(currRange *jigsaw, pkgRanges []*jigsaw) (mergedRange *jigsaw, newPkgRanges []*jigsaw) {
-	var nextRange *jigsaw
-	newPkgRanges = make([]*jigsaw, 0, 4)
-
-	if len(pkgRanges) < 1 {
-		return currRange, newPkgRanges
-
-	} else if len(pkgRanges) == 1 {
-		//
-		nextRange = pkgRanges[0]
-
-	} else {
-		nextRange, newPkgRanges = mergeRanges(pkgRanges[0], pkgRanges[1:])
+func (ms *MysqlSession) checkFinish() bool {
+	if ms.coverRanges.head == nil || ms.coverRanges.head.next == nil {
+		return false
 	}
 
-	if currRange.e >= nextRange.b {
-		mergedRange = &jigsaw{b: currRange.b, e: nextRange.e}
-
-	} else {
-		tmpRanges := make([]*jigsaw, len(newPkgRanges)+1)
-		tmpRanges[0] = nextRange
-		if len(newPkgRanges) > 0 {
-			copy(tmpRanges[1:], newPkgRanges)
-		}
-		newPkgRanges = tmpRanges
-		mergedRange = currRange
-	}
-
-	return
-}
-
-func (ms *MysqlSession) oneMysqlPackageFinish() bool {
-	if int64(len(ms.cachedStmtBytes))%MaxMysqlPacketLen == 0 {
+	checkNode := ms.coverRanges.head.next
+	if checkNode.end - checkNode.begin == int64(len(ms.cachedStmtBytes)) {
 		return true
 	}
 
 	return false
 }
 
-func (ms *MysqlSession) checkFinish() bool {
-	if len(ms.coverRanges) != 1 {
-		ranges := make([]string, 0, len(ms.coverRanges))
-		for _, cr := range ms.coverRanges {
-			ranges = append(ranges, fmt.Sprintf("[%d -- %d]", cr.b, cr.e))
-		}
+func (ms *MysqlSession) Close() {
+	ms.clear()
+}
 
-		log.Debugf("in session %s get invalid range: %s", *ms.connectionID, strings.Join(ranges, ", "))
-		return false
-	}
-
-	firstRange := ms.coverRanges[0]
-	if firstRange.e-firstRange.b != int64(len(ms.cachedStmtBytes)) {
-		return false
-	}
-
-	return true
+func (ms *MysqlSession) clear() {
+	localStmtCache.Enqueue(ms.cachedStmtBytes)
+	ms.cachedStmtBytes = nil
+	ms.expectReceiveSize = -1
+	ms.expectSendSize = -1
+	ms.prepareInfo = nil
+	ms.beginSeqID = -1
+	ms.endSeqID = -1
+	ms.ignoreAckID = -1
+	ms.sendSize = 0
+	ms.coverRanges.clear()
 }
 
 func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	contentSize := int64(len(bytes))
 
-	if ms.expectReceiveSize == 0 || ms.oneMysqlPackageFinish() {
+	if ms.expectReceiveSize == -1 {
 		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
-		ms.packageOffset = int64(len(ms.cachedStmtBytes))
+		// ignore too big mysql packet
+		if ms.expectReceiveSize >= MaxMysqlPacketLen {
+			return
+		}
 
 		contents := bytes[4:]
+		// add prepare info
 		if contents[0] == ComStmtPrepare {
 			ms.prepareInfo = &prepareInfo{}
 		}
@@ -203,63 +158,55 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		contentSize = int64(len(contents))
 		seqID += 4
 		ms.beginSeqID = seqID
-		newCache := make([]byte, ms.expectReceiveSize+len(ms.cachedStmtBytes))
-		if len(ms.cachedStmtBytes) > 0 {
-			copy(newCache[:len(ms.cachedStmtBytes)], ms.cachedStmtBytes)
+		ms.endSeqID = seqID
+
+
+		if int64(ms.expectReceiveSize) < int64(len(contents)) {
+			log.Warnf("receive invalid mysql packet")
+			return
 		}
 
-		if int64(ms.expectReceiveSize+len(ms.cachedStmtBytes)) >= ms.packageOffset+int64(len(contents)) {
-			copy(newCache[ms.packageOffset:ms.packageOffset+int64(len(contents))], contents)
-			ms.cachedStmtBytes = newCache
-		}
+		newCache := localStmtCache.DequeueWithInit(ms.expectReceiveSize)
+		copy(newCache[:len(contents)], contents)
+		ms.cachedStmtBytes = newCache
 
 	} else {
+		// ignore too big mysql packet
+		if ms.expectReceiveSize >= MaxMysqlPacketLen {
+			return
+		}
+
+		if ms.beginSeqID == -1 {
+			log.Warnf("cover range is empty")
+			return
+		}
+
 		if seqID < ms.beginSeqID {
-			log.Debugf("in session %s get outdate package with Seq:%d", *ms.connectionID, seqID)
+			// out date packet
+			log.Debugf("in session %s get outdate package with Seq:%d, beginSeq:%d",
+				*ms.connectionID, seqID, ms.beginSeqID)
 			return
 		}
 
 		seqOffset := seqID - ms.beginSeqID
-		if ms.packageOffset+seqOffset+int64(len(bytes)) <= int64(ms.expectReceiveSize) {
-			copy(ms.cachedStmtBytes[ms.packageOffset+seqOffset:ms.packageOffset+seqOffset+int64(len(bytes))], bytes)
+		if seqOffset+contentSize > int64(len(ms.cachedStmtBytes)) {
+			// not in a normal mysql packet
+			log.Debugf("receive an unexpect packet")
+			 ms.clear()
+			return
 		}
+
+		// add byte to stmt cache
+		copy(ms.cachedStmtBytes[seqOffset:seqOffset+contentSize], bytes)
 	}
 
-	insertIdx := len(ms.coverRanges)
-	for idx, cr := range ms.coverRanges {
-		if seqID < cr.b {
-			insertIdx = idx
-			break
-		}
-	}
-
-	cr := &jigsaw{b: seqID, e: seqID + contentSize}
-	if len(ms.coverRanges) < 1 || insertIdx == len(ms.coverRanges) {
-		ms.coverRanges = append(ms.coverRanges, cr)
-
-	} else {
-		newCoverRanges := make([]*jigsaw, len(ms.coverRanges)+1)
-		copy(newCoverRanges[:insertIdx], ms.coverRanges[:insertIdx])
-		newCoverRanges[insertIdx] = cr
-		copy(newCoverRanges[insertIdx+1:], ms.coverRanges[insertIdx:])
-		ms.coverRanges = newCoverRanges
-	}
-
-	ms.mergeRanges()
+	ms.coverRanges.addRange(coverRangePool.NewCoverage(seqID, seqID+contentSize))
+	// ms.expectReceiveSize = ms.expectReceiveSize - int(contentSize)
 }
 
+
 func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
-	defer func() {
-		ms.cachedStmtBytes = nil
-		ms.expectReceiveSize = 0
-		ms.expectSendSize = 0
-		ms.prepareInfo = nil
-		ms.coverRanges = make([]*jigsaw, 0, 4)
-		ms.coverRange = nil
-		ms.lastSeq = -1
-		ms.ignoreAckID = -1
-		ms.sendSize = 0
-	}()
+	defer ms.clear()
 
 	if len(ms.cachedStmtBytes) < 1 {
 		return
@@ -366,5 +313,5 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (m
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
 	return model.NewPooledMysqlQueryPiece(
 		ms.connectionID, ms.clientHost, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP,
-		ms.clientPort, ms.serverPort, ms.stmtBeginTime)
+		ms.clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
 }

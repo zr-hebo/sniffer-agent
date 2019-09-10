@@ -1,36 +1,42 @@
 package communicator
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 type configItem interface {
 	setVal (interface{}) error
 	getVal () interface{}
 }
 
-type throwPacketRateConfig struct {
+type capturePacketRateConfig struct {
 	name string
-	value float64
+	tcpTPR float64
+	mysqlTPR float64
 }
 
-func newThrowPacketRateConfig() (tpr *throwPacketRateConfig) {
-	tpr = &throwPacketRateConfig{
-		name: THROW_PACKET_RATE,
-		value: 0.0,
+func newCapturePacketRateConfig() (cprc *capturePacketRateConfig) {
+	cprc = &capturePacketRateConfig{
+		name:     CAPTURE_PACKET_RATE,
+		tcpTPR:   1.0,
+		mysqlTPR: 1.0,
 	}
 	return
 }
 
-func (tc *throwPacketRateConfig) setVal (val interface{}) (err error){
+func (cprc *capturePacketRateConfig) setVal (val interface{}) (err error){
 	realVal, ok := val.(float64)
 	if !ok {
 		err = fmt.Errorf("cannot reansform val: %v to float64", val)
 		return
 	}
 
-	tc.value = realVal
+	cprc.mysqlTPR = realVal
+	cprc.tcpTPR = math.Sqrt(realVal)
 	return
 }
 
-func (tc *throwPacketRateConfig) getVal () (val interface{}){
-	return tc.value
+func (cprc *capturePacketRateConfig) getVal () (val interface{}){
+	return cprc.mysqlTPR
 }

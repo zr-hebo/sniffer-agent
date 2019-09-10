@@ -81,3 +81,11 @@ func outletSetConfig(resp http.ResponseWriter, req *http.Request) {
 
 	mp.Err = SetConfig(ep.ConfigName, ep.Value)
 }
+
+func GetTCPCapturePacketRate() float64 {
+	return catpurePacketRate.tcpTPR
+}
+
+func GetMysqlCapturePacketRate() float64 {
+	return catpurePacketRate.mysqlTPR
+}

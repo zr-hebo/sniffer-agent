@@ -5,13 +5,13 @@ import (
 )
 
 type mysqlQueryPiecePool struct {
-	queue  []*PooledMysqlQueryPiece
+	queue  chan *PooledMysqlQueryPiece
 	lock sync.Mutex
 }
 
 func NewMysqlQueryPiecePool() (mqpp *mysqlQueryPiecePool) {
 	return &mysqlQueryPiecePool{
-		queue: make([]*PooledMysqlQueryPiece, 0, 5000),
+		queue: make(chan *PooledMysqlQueryPiece, 1024),
 	}
 }
 
@@ -19,18 +19,21 @@ func (mqpp *mysqlQueryPiecePool) Enqueue(pmqp *PooledMysqlQueryPiece)  {
 	mqpp.lock.Lock()
 	defer mqpp.lock.Unlock()
 
-	mqpp.queue = append(mqpp.queue, pmqp)
+
+	mqpp.queue <- pmqp
 }
 
 func (mqpp *mysqlQueryPiecePool) Dequeue() (pmqp *PooledMysqlQueryPiece)  {
 	mqpp.lock.Lock()
 	defer mqpp.lock.Unlock()
 
-	if len(mqpp.queue) < 1 {
-		return nil
+	select {
+	case pmqp = <- mqpp.queue:
+		return
+	default:
+		pmqp = &PooledMysqlQueryPiece{
+			MysqlQueryPiece: MysqlQueryPiece{},
+		}
+		return
 	}
-
-	pmqp = mqpp.queue[0]
-	mqpp.queue = mqpp.queue[1:]
-	return
 }

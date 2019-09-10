@@ -73,13 +73,13 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 		panic(err.Error())
 	}
 
-	_ = handler.SetCaptureLength(1024*1024*5)
+	_ = handler.SetCaptureLength(65536)
 
 	return
 }
 
 func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
-	handler, err := pcap.OpenLive(DeviceName, 65535, false, pcap.BlockForever)
+	handler, err := pcap.OpenLive(DeviceName, 65536, false, pcap.BlockForever)
 	if err != nil {
 		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
 	}
@@ -116,16 +116,16 @@ func (nc *networkCard) listenNormal() {
 				continue
 			}
 
-			// throw packets according to a certain probability
-			throwPacketRate := communicator.GetConfig(communicator.THROW_PACKET_RATE).(float64)
-			if throwPacketRate >= 1.0 {
+			// capture packets according to a certain probability
+			capturePacketRate := communicator.GetTCPCapturePacketRate()
+			if capturePacketRate <= 0 {
 				time.Sleep(time.Second*3)
 				continue
 
-			} else if 0 < throwPacketRate && throwPacketRate < 1.0 {
+			} else if 0 < capturePacketRate && capturePacketRate < 1.0 {
 				// fall into throw range
 				rn := rand.Float64()
-				if rn <= throwPacketRate {
+				if rn > capturePacketRate {
 					continue
 				}
 			}
@@ -255,8 +255,11 @@ func readFromServerPackage(
 
 	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
-		delete(sessionPool, *sessionKey)
-		log.Debugf("close connection from %s", *sessionKey)
+		session := sessionPool[*sessionKey]
+		if session != nil {
+			session.Close()
+			delete(sessionPool, *sessionKey)
+		}
 		return
 	}
 
@@ -268,8 +271,6 @@ func readFromServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
-		// session.readFromServer(tcpPayload)
-		// qp = session.GenerateQueryPiece()
 		pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Ack), false)
 		session.ReceiveTCPPacket(pkt)
 	}
@@ -288,7 +289,11 @@ func readToServerPackage(
 	// when client try close connection remove session from session pool
 	if tcpPkt.FIN {
 		sessionKey := spliceSessionKey(srcIP, srcPort)
-		delete(sessionPool, *sessionKey)
+		session := sessionPool[*sessionKey]
+		if session != nil {
+			session.Close()
+			delete(sessionPool, *sessionKey)
+		}
 		log.Debugf("close connection from %s", *sessionKey)
 		return
 	}
