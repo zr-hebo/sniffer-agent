@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
-
-	log "github.com/sirupsen/logrus"
 )
 
 
@@ -24,9 +22,9 @@ func NewSliceBufferPool(name string, bufferSize int) (sbp *sliceBufferPool) {
 }
 
 func (sbp *sliceBufferPool) Enqueue(buffer []byte)  {
-	defer func() {
-		log.Debugf("after enqueue from %s, there is %d elements", sbp.name, len(sbp.queue))
-	}()
+	// defer func() {
+	// 	log.Debugf("after enqueue from %s, there is %d elements", sbp.name, len(sbp.queue))
+	// }()
 
 	if cap(buffer) < 1 {
 		return
@@ -52,9 +50,9 @@ func (sbp *sliceBufferPool) DequeueWithInit(initSize int) (buffer []byte)  {
 }
 
 func (sbp *sliceBufferPool) Dequeue() (buffer []byte)  {
-	defer func() {
-		log.Debugf("after dequeue from %s, there is %d elements", sbp.name, len(sbp.queue))
-	}()
+	// defer func() {
+	// 	log.Debugf("after dequeue from %s, there is %d elements", sbp.name, len(sbp.queue))
+	// }()
 
 	select {
 	case buffer = <- sbp.queue:

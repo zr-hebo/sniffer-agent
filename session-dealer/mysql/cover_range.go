@@ -1,9 +1,5 @@
 package mysql
 
-import (
-	log "github.com/sirupsen/logrus"
-)
-
 // coverageNode record tcp package begin and end seq id
 type coverageNode struct {
 	begin int64
@@ -105,7 +101,7 @@ func (crp *coveragePool) NewCoverage(begin, end int64)(cn *coverageNode)  {
 }
 
 func (crp *coveragePool) Enqueue(cn *coverageNode)  {
-	log.Debugf("coveragePool enqueue: %d", len(crp.queue))
+	// log.Debugf("coveragePool enqueue: %d", len(crp.queue))
 	if cn == nil {
 		return
 	}
@@ -114,7 +110,7 @@ func (crp *coveragePool) Enqueue(cn *coverageNode)  {
 }
 
 func (crp *coveragePool) Dequeue() (cn *coverageNode)  {
-	log.Debugf("coveragePool dequeue: %d", len(crp.queue))
+	// log.Debugf("coveragePool dequeue: %d", len(crp.queue))
 
 	defer func() {
 		cn.begin = -1
