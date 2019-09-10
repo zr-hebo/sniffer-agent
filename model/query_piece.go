@@ -3,14 +3,12 @@ package model
 import (
 	"bytes"
 
-	// "encoding/json"
-	"github.com/json-iterator/go"
+	"encoding/json"
+	// "github.com/json-iterator/go"
 	"time"
 
 	"github.com/pingcap/tidb/util/hack"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type QueryPiece interface {
 	String() *string
