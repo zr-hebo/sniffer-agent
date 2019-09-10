@@ -313,5 +313,5 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (m
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
 	return model.NewPooledMysqlQueryPiece(
 		ms.connectionID, ms.clientHost, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP,
-		ms.clientPort, ms.serverPort, communicator.GetMysqlThrowPacketRate(), ms.stmtBeginTime)
+		ms.clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
 }

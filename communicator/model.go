@@ -10,33 +10,33 @@ type configItem interface {
 	getVal () interface{}
 }
 
-type throwPacketRateConfig struct {
+type capturePacketRateConfig struct {
 	name string
 	tcpTPR float64
 	mysqlTPR float64
 }
 
-func newThrowPacketRateConfig() (tpr *throwPacketRateConfig) {
-	tpr = &throwPacketRateConfig{
-		name: THROW_PACKET_RATE,
-		tcpTPR: 0.0,
-		mysqlTPR: 0.0,
+func newCapturePacketRateConfig() (cprc *capturePacketRateConfig) {
+	cprc = &capturePacketRateConfig{
+		name:     CAPTURE_PACKET_RATE,
+		tcpTPR:   1.0,
+		mysqlTPR: 1.0,
 	}
 	return
 }
 
-func (tc *throwPacketRateConfig) setVal (val interface{}) (err error){
+func (cprc *capturePacketRateConfig) setVal (val interface{}) (err error){
 	realVal, ok := val.(float64)
 	if !ok {
 		err = fmt.Errorf("cannot reansform val: %v to float64", val)
 		return
 	}
 
-	tc.mysqlTPR = realVal
-	tc.tcpTPR = math.Sqrt(realVal)
+	cprc.mysqlTPR = realVal
+	cprc.tcpTPR = math.Sqrt(realVal)
 	return
 }
 
-func (tc *throwPacketRateConfig) getVal () (val interface{}){
-	return tc.mysqlTPR
+func (cprc *capturePacketRateConfig) getVal () (val interface{}){
+	return cprc.mysqlTPR
 }

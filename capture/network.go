@@ -116,16 +116,16 @@ func (nc *networkCard) listenNormal() {
 				continue
 			}
 
-			// throw packets according to a certain probability
-			throwPacketRate := communicator.GetTCPThrowPacketRate()
-			if throwPacketRate >= 1.0 {
+			// capture packets according to a certain probability
+			capturePacketRate := communicator.GetTCPCapturePacketRate()
+			if capturePacketRate <= 0 {
 				time.Sleep(time.Second*3)
 				continue
 
-			} else if 0 < throwPacketRate && throwPacketRate < 1.0 {
+			} else if 0 < capturePacketRate && capturePacketRate < 1.0 {
 				// fall into throw range
 				rn := rand.Float64()
-				if rn <= throwPacketRate {
+				if rn > capturePacketRate {
 					continue
 				}
 			}
