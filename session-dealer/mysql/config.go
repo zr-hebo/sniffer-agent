@@ -19,6 +19,8 @@ var (
 
 	coverRangePool = NewCoveragePool()
 	localStmtCache = model.NewSliceBufferPool("statement cache", MaxMysqlPacketLen)
+
+	PrepareStatement = []byte(":prepare")
 )
 
 func init() {

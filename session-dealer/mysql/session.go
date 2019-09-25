@@ -258,7 +258,8 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 		case ComStmtPrepare:
 			mqp = ms.composeQueryPiece()
-			querySQLInBytes = ms.cachedStmtBytes[1:]
+			querySQLInBytes = make([]byte, len(ms.cachedStmtBytes[1:]))
+			copy(querySQLInBytes, ms.cachedStmtBytes[1:])
 			querySQL := hack.String(querySQLInBytes)
 			mqp.QuerySQL = &querySQL
 			ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = querySQLInBytes
@@ -267,10 +268,15 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		case ComStmtExecute:
 			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
 			mqp = ms.composeQueryPiece()
-			querySQLInBytes = ms.cachedPrepareStmt[prepareStmtID]
+			var ok bool
+			querySQLInBytes, ok = ms.cachedPrepareStmt[prepareStmtID]
+			if !ok {
+				querySQLInBytes = PrepareStatement
+			}
 			querySQL := hack.String(querySQLInBytes)
 			mqp.QuerySQL = &querySQL
-			log.Debugf("execute prepare statement:%d", prepareStmtID)
+
+			// log.Debugf("execute prepare statement:%d", prepareStmtID)
 
 		case ComStmtClose:
 			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
