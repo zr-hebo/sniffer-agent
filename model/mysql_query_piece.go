@@ -9,9 +9,9 @@ import (
 type MysqlQueryPiece struct {
 	BaseQueryPiece
 
-	SessionID    *string `json:"cid"`
-	ClientHost   *string `json:"-"`
-	ClientPort   int     `json:"-"`
+	SessionID    *string `json:"-"`
+	ClientHost   *string `json:"cip"`
+	ClientPort   int     `json:"cport"`
 
 	VisitUser    *string `json:"user"`
 	VisitDB      *string `json:"db"`
