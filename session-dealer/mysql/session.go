@@ -161,7 +161,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		ms.endSeqID = seqID
 
 		if int64(ms.expectReceiveSize) < int64(len(contents)) {
-			log.Warnf("receive invalid mysql packet")
+			log.Debug("receive invalid mysql packet")
 			return
 		}
 
