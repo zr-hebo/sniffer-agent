@@ -20,13 +20,13 @@ import (
 var (
 	DeviceName  string
 	snifferPort int
-	inParallel bool
+	// inParallel bool
 )
 
 func init() {
 	flag.StringVar(&DeviceName, "interface", "eth0", "network device name. Default is eth0")
 	flag.IntVar(&snifferPort, "port", 3306, "sniffer port. Default is 3306")
-	flag.BoolVar(&inParallel, "in_parallel", false, "if capture and deal package in parallel. Default is false")
+	// flag.BoolVar(&inParallel, "in_parallel", false, "if capture and deal package in parallel. Default is false")
 }
 
 // networkCard is network device
@@ -93,21 +93,27 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 }
 
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
-	if inParallel {
-		nc.listenInParallel()
+	// if inParallel {
+	// 	nc.listenInParallel()
+	//
+	// } else {
+	// 	nc.listenNormal()
+	// }
 
-	} else {
-		nc.listenNormal()
-	}
-
+	nc.listenNormal()
 	return nc.receiver
+}
+
+func isFINPacket(data []byte) (isFIN bool) {
+	return
 }
 
 // Listen get a connection.
 func (nc *networkCard) listenNormal() {
 	go func() {
 		aliveCounter := 0
-		handler := initEthernetHandlerFromPacpgo()
+		handler := initEthernetHandlerFromPacp()
+
 		for {
 			var data []byte
 			var ci gopacket.CaptureInfo
@@ -117,6 +123,18 @@ func (nc *networkCard) listenNormal() {
 			if err != nil {
 				log.Error(err.Error())
 				time.Sleep(time.Second*3)
+				continue
+			}
+
+			// packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
+			packet := gopacket.NewPacket(data, handler.LinkType(), gopacket.NoCopy)
+			m := packet.Metadata()
+			m.CaptureInfo = ci
+
+			// send FIN tcp packet to avoid not complete session cannot be released
+			tcpPkt := packet.TransportLayer().(*layers.TCP)
+			if tcpPkt.FIN {
+				nc.parseTCPPackage(packet)
 				continue
 			}
 
@@ -140,10 +158,6 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			aliveCounter = 0
-			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
-			m := packet.Metadata()
-			m.CaptureInfo = ci
-			m.Truncated = m.Truncated || ci.CaptureLength < ci.Length
 			nc.parseTCPPackage(packet)
 		}
 	}()
