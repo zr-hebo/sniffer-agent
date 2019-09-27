@@ -119,7 +119,7 @@ func (nc *networkCard) listenNormal() {
 				time.Sleep(time.Second*3)
 				continue
 			}
-			
+
 			// capture packets according to a certain probability
 			tcpCapturePacketRate := communicator.GetTCPCapturePacketRate()
 			if tcpCapturePacketRate <= 0 {

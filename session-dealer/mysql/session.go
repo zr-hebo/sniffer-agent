@@ -149,6 +149,11 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 			return
 		}
 
+		// ignore invalid head package
+		if len(bytes) <= 4{
+			return
+		}
+
 		contents := bytes[4:]
 		// add prepare info
 		if contents[0] == ComStmtPrepare {
