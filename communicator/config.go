@@ -28,7 +28,7 @@ func init() {
 
 	flag.IntVar(&communicatePort, "communicate_port", 8088, "http server port. Default is 8088")
 	var cpr float64
-	flag.Float64Var(&cpr, CAPTURE_PACKET_RATE, 1, "capture packet rate. Default is 1.0")
+	flag.Float64Var(&cpr, CAPTURE_PACKET_RATE, 0.01, "capture packet rate. Default is 0.01")
 	_ = catpurePacketRate.setVal(cpr)
 
 	configMap = make(map[string]configItem)
