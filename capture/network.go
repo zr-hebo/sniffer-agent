@@ -113,33 +113,33 @@ func (nc *networkCard) listenNormal() {
 			var ci gopacket.CaptureInfo
 			var err error
 
-			// capture packets according to a certain probability
-			capturePacketRate := communicator.GetTCPCapturePacketRate()
-			if capturePacketRate <= 0 {
-				time.Sleep(time.Second*1)
-				aliveCounter += 1
-				if aliveCounter >= checkCount {
-					aliveCounter = 0
-					nc.receiver <- model.NewBaseQueryPiece(localIPAddr, nc.listenPort, capturePacketRate)
-				}
-				continue
-
-			} else if 0 < capturePacketRate && capturePacketRate < 1.0 {
-				// fall into throw range
-				rn := rand.Float64()
-				if rn > capturePacketRate {
-					continue
-				}
-			}
-
-			aliveCounter = 0
 			data, ci, err = handler.ZeroCopyReadPacketData()
 			if err != nil {
 				log.Error(err.Error())
 				time.Sleep(time.Second*3)
 				continue
 			}
+			
+			// capture packets according to a certain probability
+			tcpCapturePacketRate := communicator.GetTCPCapturePacketRate()
+			if tcpCapturePacketRate <= 0 {
+				time.Sleep(time.Second*1)
+				aliveCounter += 1
+				if aliveCounter >= checkCount {
+					aliveCounter = 0
+					nc.receiver <- model.NewBaseQueryPiece(localIPAddr, nc.listenPort, tcpCapturePacketRate)
+				}
+				continue
 
+			} else if 0 < tcpCapturePacketRate && tcpCapturePacketRate < 1.0 {
+				// fall into throw range
+				rn := rand.Float64()
+				if rn > tcpCapturePacketRate {
+					continue
+				}
+			}
+
+			aliveCounter = 0
 			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
 			m := packet.Metadata()
 			m.CaptureInfo = ci
