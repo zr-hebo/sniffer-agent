@@ -181,7 +181,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		}
 
 		if ms.beginSeqID == -1 {
-			log.Warnf("cover range is empty")
+			log.Debug("cover range is empty")
 			return
 		}
 
