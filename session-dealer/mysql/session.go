@@ -143,14 +143,14 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	contentSize := int64(len(bytes))
 
 	if ms.expectReceiveSize == -1 {
-		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
-		// ignore too big mysql packet
-		if ms.expectReceiveSize >= MaxMysqlPacketLen {
+		// ignore invalid head package
+		if len(bytes) <= 4{
 			return
 		}
 
-		// ignore invalid head package
-		if len(bytes) <= 4{
+		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
+		// ignore too big mysql packet
+		if ms.expectReceiveSize >= MaxMysqlPacketLen {
 			return
 		}
 
