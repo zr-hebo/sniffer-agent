@@ -43,12 +43,14 @@ type MysqlDB struct {
 	DatabaseType   string
 	DBName         string
 	ConnectTimeout int
+	QueryTimeout   int
 }
 
 // NewMysqlDB 创建MySQL数据库
 func NewMysqlDB() (md *MysqlDB) {
 	md = new(MysqlDB)
 	md.DatabaseType = dbTypeMysql
+	md.QueryTimeout = 5
 	return
 }
 
@@ -352,7 +354,7 @@ func (md *MysqlDB) fillConnStr() string {
 		md.UserName, md.Passwd, md.IP, md.Port, md.DBName)
 	if md.ConnectTimeout > 0 {
 		dbServerInfoStr = fmt.Sprintf("%s?timeout=%ds&readTimeout=%ds&writeTimeout=%ds",
-			dbServerInfoStr, md.ConnectTimeout, md.ConnectTimeout, md.ConnectTimeout)
+			dbServerInfoStr, md.ConnectTimeout, md.QueryTimeout, md.QueryTimeout)
 	}
 
 	return dbServerInfoStr
