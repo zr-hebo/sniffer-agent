@@ -71,7 +71,7 @@ func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
 }
 
 func (pmqp *PooledMysqlQueryPiece) Recovery() {
-	pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
+	// pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
 	pmqp.jsonContent = nil
 	pmqp.recoverPool.Enqueue(pmqp)
 }
