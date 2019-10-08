@@ -301,10 +301,14 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		}
 	}
 
-	return filterQueryPieceBySQL(mqp, querySQLInBytes)
+	mqp = filterQueryPieceBySQL(mqp, querySQLInBytes)
+	if mqp != nil {
+		mqp.GenerateJsonBytes()
+	}
+	return mqp
 }
 
-func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (model.QueryPiece) {
+func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (*model.PooledMysqlQueryPiece) {
 	if mqp == nil || querySQL == nil {
 		return nil
 

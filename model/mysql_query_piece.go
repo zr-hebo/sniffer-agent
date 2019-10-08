@@ -62,8 +62,13 @@ func (mqp *MysqlQueryPiece) Bytes() (content []byte) {
 		return mqp.jsonContent
 	}
 
-	mqp.jsonContent = marsharQueryPieceMonopolize(mqp)
+	mqp.GenerateJsonBytes()
 	return mqp.jsonContent
+}
+
+func (mqp *MysqlQueryPiece) GenerateJsonBytes() {
+	mqp.jsonContent = marsharQueryPieceMonopolize(mqp)
+	return
 }
 
 func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
