@@ -83,6 +83,10 @@ func (bqp *BaseQueryPiece) Recovery() {
 
 func marsharQueryPiece(qp interface{}) []byte {
 	var cacheBuffer = localSliceBufferPool.Dequeue()
+	if len(cacheBuffer) > 0 {
+		panic("there already have bytes in buffer")
+	}
+
 	buffer := bytes.NewBuffer(cacheBuffer)
 	err := json.NewEncoder(buffer).Encode(qp)
 	if err != nil {
