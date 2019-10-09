@@ -302,9 +302,10 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	}
 
 	mqp = filterQueryPieceBySQL(mqp, querySQLInBytes)
-	if mqp != nil {
-		mqp.GenerateJsonBytes()
+	if mqp == nil {
+		return nil
 	}
+	mqp.GenerateJsonBytes()
 	return mqp
 }
 
