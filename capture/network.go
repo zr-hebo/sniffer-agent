@@ -117,7 +117,7 @@ func (nc *networkCard) listenNormal() {
 			var err error
 
 			// capture packets according to a certain probability
-			capturePacketRate := communicator.GetMysqlCapturePacketRate()
+			capturePacketRate := communicator.GetTCPCapturePacketRate()
 			if capturePacketRate <= 0 {
 				time.Sleep(time.Second*1)
 				aliveCounter += 1
