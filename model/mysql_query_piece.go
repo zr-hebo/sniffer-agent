@@ -41,7 +41,7 @@ func NewPooledMysqlQueryPiece(
 	mqp.VisitUser = visitUser
 	mqp.VisitDB = visitDB
 	mqp.SyncSend = false
-	mqp.ThrowPacketRate = throwPacketRate
+	mqp.CapturePacketRate = throwPacketRate
 	mqp.BeginTime = stmtBeginTime
 	mqp.CostTimeInMS = nowInMS - stmtBeginTime
 	mqp.recoverPool = mqpp

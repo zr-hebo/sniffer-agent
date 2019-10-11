@@ -20,12 +20,12 @@ type QueryPiece interface {
 
 // BaseQueryPiece 查询信息
 type BaseQueryPiece struct {
-	SyncSend        bool    `json:"-"`
-	ServerIP        *string `json:"sip"`
-	ServerPort      int     `json:"sport"`
-	ThrowPacketRate float64 `json:"tpr"`
-	BeginTime       int64   `json:"bt"`
-	jsonContent     []byte  `json:"-"`
+	SyncSend          bool    `json:"-"`
+	ServerIP          *string `json:"sip"`
+	ServerPort        int     `json:"sport"`
+	CapturePacketRate float64 `json:"cpr"`
+	BeginTime         int64   `json:"bt"`
+	jsonContent       []byte  `json:"-"`
 }
 
 const (
@@ -40,13 +40,13 @@ var (
 var commonBaseQueryPiece = &BaseQueryPiece{}
 
 func NewBaseQueryPiece(
-	serverIP *string, serverPort int, throwPacketRate float64) (
+	serverIP *string, serverPort int, capturePacketRate float64) (
 	bqp *BaseQueryPiece) {
 	bqp = commonBaseQueryPiece
 	bqp.ServerIP = serverIP
 	bqp.ServerPort = serverPort
 	bqp.SyncSend = false
-	bqp.ThrowPacketRate = throwPacketRate
+	bqp.CapturePacketRate = capturePacketRate
 	bqp.BeginTime = time.Now().UnixNano() / millSecondUnit
 
 	return
