@@ -23,7 +23,7 @@ MySQL协议的解析结果示例如下：
 ```
 {"cip":"192.168.XXX.XXX","cport":63888,"sip":"192.168.XX.XX","sport":3306,"user":"root","db":"sniffer","sql":"show tables","cpr":1.0,"bt":"1566545734147","cms":15}
 ```
-其中cip代表客户端ip，cport代表客户端port(客户端ip：port组成session标识)，sip代表server ip，sport代表server port，user代表查询用户，db代表当前连接的库名，sql代表查询语句，cpr代表抓报率，bt代表查询开始时间戳，cms代表查询消耗的时间，单位是毫秒
+其中cip代表客户端ip，cport代表客户端port(客户端ip：port组成session标识)，sip代表server ip，sport代表server port，user代表查询用户，db代表当前连接的库名，sql代表查询语句，cpr代表抓包率，bt代表查询开始时间戳，cms代表查询消耗的时间，单位是毫秒
 
 ## CapturePacketRate
 sniffer-agent最强大的地方在于可以动态设置抓报率。尤其是对比较线上性能敏感的系统，设置抓包率为从０－１的浮点数，表示按照一定概率抓取数据包。这样能够根据系统负载情况，在采集覆盖情况和线上负载之间进行权衡。对于已经开启的sniffer支持通过http接口，动态地调整抓包率。
