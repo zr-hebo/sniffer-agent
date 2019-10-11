@@ -19,7 +19,6 @@ func (mqpp *mysqlQueryPiecePool) Enqueue(pmqp *PooledMysqlQueryPiece)  {
 	mqpp.lock.Lock()
 	defer mqpp.lock.Unlock()
 
-
 	mqpp.queue <- pmqp
 }
 

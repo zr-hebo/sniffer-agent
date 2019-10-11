@@ -12,17 +12,17 @@ import (
 )
 
 type MysqlSession struct {
-	connectionID             *string
-	visitUser                *string
-	visitDB                  *string
-	clientHost               *string
-	clientPort               int
-	serverIP                 *string
-	serverPort               int
-	stmtBeginTime            int64
+	connectionID  *string
+	visitUser     *string
+	visitDB       *string
+	clientHost    *string
+	clientPort    int
+	serverIP      *string
+	serverPort    int
+	stmtBeginTime int64
 	// packageOffset            int64
-	beginSeqID        int64
-	endSeqID        int64
+	beginSeqID               int64
+	endSeqID                 int64
 	coverRanges              *coverRanges
 	expectReceiveSize        int
 	expectSendSize           int
@@ -59,7 +59,7 @@ func NewMysqlSession(
 		queryPieceReceiver: receiver,
 		closeConn:          make(chan bool, 1),
 		expectReceiveSize:  -1,
-		coverRanges: NewCoverRanges(),
+		coverRanges:        NewCoverRanges(),
 		ignoreAckID:        -1,
 		sendSize:           0,
 		pkgCacheLock:       sync.Mutex{},
@@ -100,7 +100,7 @@ func (ms *MysqlSession) resetBeginTime() {
 }
 
 func (ms *MysqlSession) readFromServer(bytes []byte) {
-	if ms.expectSendSize < 1 {
+	if ms.expectSendSize < 1 && len(bytes) > 4 {
 		ms.expectSendSize = extractMysqlPayloadSize(bytes[:4])
 		contents := bytes[4:]
 		if ms.prepareInfo != nil && contents[0] == 0 {
@@ -115,7 +115,7 @@ func (ms *MysqlSession) checkFinish() bool {
 	}
 
 	checkNode := ms.coverRanges.head.next
-	if checkNode.end - checkNode.begin == int64(len(ms.cachedStmtBytes)) {
+	if checkNode.end-checkNode.begin == int64(len(ms.cachedStmtBytes)) {
 		return true
 	}
 
@@ -143,6 +143,11 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	contentSize := int64(len(bytes))
 
 	if ms.expectReceiveSize == -1 {
+		// ignore invalid head package
+		if len(bytes) <= 4{
+			return
+		}
+
 		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
 		// ignore too big mysql packet
 		if ms.expectReceiveSize >= MaxMysqlPacketLen {
@@ -160,9 +165,8 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		ms.beginSeqID = seqID
 		ms.endSeqID = seqID
 
-
 		if int64(ms.expectReceiveSize) < int64(len(contents)) {
-			log.Warnf("receive invalid mysql packet")
+			log.Debug("receive invalid mysql packet")
 			return
 		}
 
@@ -177,7 +181,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		}
 
 		if ms.beginSeqID == -1 {
-			log.Warnf("cover range is empty")
+			log.Debug("cover range is empty")
 			return
 		}
 
@@ -192,7 +196,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		if seqOffset+contentSize > int64(len(ms.cachedStmtBytes)) {
 			// not in a normal mysql packet
 			log.Debugf("receive an unexpect packet")
-			 ms.clear()
+			ms.clear()
 			return
 		}
 
@@ -203,7 +207,6 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	ms.coverRanges.addRange(coverRangePool.NewCoverage(seqID, seqID+contentSize))
 	// ms.expectReceiveSize = ms.expectReceiveSize - int(contentSize)
 }
-
 
 func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	defer ms.clear()
@@ -298,10 +301,15 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		}
 	}
 
-	return filterQueryPieceBySQL(mqp, querySQLInBytes)
+	mqp = filterQueryPieceBySQL(mqp, querySQLInBytes)
+	if mqp == nil {
+		return nil
+	}
+	mqp.GenerateJsonBytes()
+	return mqp
 }
 
-func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (model.QueryPiece) {
+func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (*model.PooledMysqlQueryPiece) {
 	if mqp == nil || querySQL == nil {
 		return nil
 

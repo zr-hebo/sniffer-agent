@@ -9,9 +9,9 @@ import (
 type MysqlQueryPiece struct {
 	BaseQueryPiece
 
-	SessionID    *string `json:"cid"`
-	ClientHost   *string `json:"-"`
-	ClientPort   int     `json:"-"`
+	SessionID    *string `json:"-"`
+	ClientHost   *string `json:"cip"`
+	ClientPort   int     `json:"cport"`
 
 	VisitUser    *string `json:"user"`
 	VisitDB      *string `json:"db"`
@@ -62,8 +62,13 @@ func (mqp *MysqlQueryPiece) Bytes() (content []byte) {
 		return mqp.jsonContent
 	}
 
-	mqp.jsonContent = marsharQueryPiece(mqp)
+	mqp.GenerateJsonBytes()
 	return mqp.jsonContent
+}
+
+func (mqp *MysqlQueryPiece) GenerateJsonBytes() {
+	mqp.jsonContent = marsharQueryPieceMonopolize(mqp)
+	return
 }
 
 func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
@@ -71,7 +76,7 @@ func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
 }
 
 func (pmqp *PooledMysqlQueryPiece) Recovery() {
-	pmqp.recoverPool.Enqueue(pmqp)
-	pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
+	// pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
 	pmqp.jsonContent = nil
+	pmqp.recoverPool.Enqueue(pmqp)
 }

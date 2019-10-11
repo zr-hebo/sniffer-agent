@@ -1,12 +1,14 @@
 package model
 
 import (
-	// "github.com/json-iterator/go"
 	"bytes"
 	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/pingcap/tidb/util/hack"
 	"time"
 )
+
+var jsonIterator = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type QueryPiece interface {
 	String() *string
@@ -70,7 +72,7 @@ func (bqp *BaseQueryPiece) Bytes() (content []byte) {
 		return bqp.jsonContent
 	}
 
-	bqp.jsonContent = marsharQueryPiece(bqp)
+	bqp.jsonContent = marsharQueryPieceMonopolize(bqp)
 	return bqp.jsonContent
 }
 
@@ -81,8 +83,12 @@ func (bqp *BaseQueryPiece) GetSQL() (*string) {
 func (bqp *BaseQueryPiece) Recovery() {
 }
 
-func marsharQueryPiece(qp interface{}) []byte {
+func marsharQueryPieceShareMemory(qp interface{}) []byte {
 	var cacheBuffer = localSliceBufferPool.Dequeue()
+	if len(cacheBuffer) > 0 {
+		panic("there already have bytes in buffer")
+	}
+
 	buffer := bytes.NewBuffer(cacheBuffer)
 	err := json.NewEncoder(buffer).Encode(qp)
 	if err != nil {
@@ -90,4 +96,13 @@ func marsharQueryPiece(qp interface{}) []byte {
 	}
 
 	return buffer.Bytes()
+}
+
+func marsharQueryPieceMonopolize(qp interface{}) (content []byte) {
+	content, err := jsonIterator.Marshal(qp)
+	if err != nil {
+		return []byte(err.Error())
+	}
+
+	return content
 }

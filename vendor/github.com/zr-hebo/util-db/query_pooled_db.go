@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 // PooledMysqlDB Mysql主机实例
 type PooledMysqlDB struct {
 	MysqlDB
@@ -46,6 +45,7 @@ func NewPooledMysqlDBWithAllParam(
 func NewPooledMysqlDB() (pmd *PooledMysqlDB) {
 	pmd = new(PooledMysqlDB)
 	pmd.DatabaseType = dbTypeMysql
+	pmd.QueryTimeout = 5
 	pmd.lock = new(sync.Mutex)
 	return
 }

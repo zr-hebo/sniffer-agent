@@ -6,3 +6,5 @@ sniffer-agent
 # vendor/github.com
 profile*
 *.svg
+nohup.out
+*/nohup.out

@@ -11,6 +11,8 @@ import (
 )
 
 func Server() {
+	initConfig()
+
 	server := &http.Server{
 		Addr:        "0.0.0.0:" + strconv.Itoa(communicatePort),
 		IdleTimeout: time.Second * 5,
@@ -20,6 +22,10 @@ func Server() {
 	if err := server.ListenAndServe(); err != nil {
 		panic(err)
 	}
+}
+
+func initConfig()  {
+	_ = catpurePacketRate.setVal(catpurePacketRateVal)
 }
 
 func outletCheckAlive(resp http.ResponseWriter, req *http.Request) {

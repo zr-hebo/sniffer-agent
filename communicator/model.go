@@ -32,6 +32,7 @@ func (cprc *capturePacketRateConfig) setVal (val interface{}) (err error){
 		return
 	}
 
+	fmt.Printf("set config %s: %v\n", CAPTURE_PACKET_RATE, realVal)
 	cprc.mysqlTPR = realVal
 	cprc.tcpTPR = math.Sqrt(realVal)
 	return
