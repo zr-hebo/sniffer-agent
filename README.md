@@ -21,9 +21,9 @@ sniffer-agent采用模块化结构，支持用户添加自己的解析模块，�
 目前输出的内容都是解析结果组成的json。
 MySQL协议的解析结果示例如下：
 ```
-{"cip":"192.168.XXX.XXX","cport":63888,"sip":"192.168.XX.XX","sport":3306,"user":"root","db":"sniffer","sql":"show tables","bt":"1566545734147","cms":15}
+{"cip":"192.168.XXX.XXX","cport":63888,"sip":"192.168.XX.XX","sport":3306,"user":"root","db":"sniffer","sql":"show tables","cpr":1.0,"bt":"1566545734147","cms":15}
 ```
-其中cip代表客户端ip，cport代表客户端port(客户端ip：port组成session标识)，sip代表server ip，sport代表server port，user代表查询用户，db代表当前连接的库名，sql代表查询语句，bt代表查询开始时间戳，cms代表查询消耗的时间，单位是毫秒
+其中cip代表客户端ip，cport代表客户端port(客户端ip：port组成session标识)，sip代表server ip，sport代表server port，user代表查询用户，db代表当前连接的库名，sql代表查询语句，cpr代表抓报率，为了减少对线上系统的影响，降低采集率，bt代表查询开始时间戳，cms代表查询消耗的时间，单位是毫秒
 
 ### Exporter
 
