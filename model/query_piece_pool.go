@@ -19,7 +19,13 @@ func (mqpp *mysqlQueryPiecePool) Enqueue(pmqp *PooledMysqlQueryPiece)  {
 	mqpp.lock.Lock()
 	defer mqpp.lock.Unlock()
 
-	mqpp.queue <- pmqp
+	select {
+	case mqpp.queue <- pmqp:
+		return
+	default:
+		pmqp = nil
+		return
+	}
 }
 
 func (mqpp *mysqlQueryPiecePool) Dequeue() (pmqp *PooledMysqlQueryPiece)  {
@@ -29,6 +35,7 @@ func (mqpp *mysqlQueryPiecePool) Dequeue() (pmqp *PooledMysqlQueryPiece)  {
 	select {
 	case pmqp = <- mqpp.queue:
 		return
+
 	default:
 		pmqp = &PooledMysqlQueryPiece{
 			MysqlQueryPiece: MysqlQueryPiece{},

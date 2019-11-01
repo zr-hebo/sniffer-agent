@@ -93,13 +93,6 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 }
 
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
-	// if inParallel {
-	// 	nc.listenInParallel()
-	//
-	// } else {
-	// 	nc.listenNormal()
-	// }
-
 	nc.listenNormal()
 	return nc.receiver
 }
@@ -156,62 +149,6 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			aliveCounter = 0
-			nc.parseTCPPackage(packet)
-		}
-	}()
-
-	return
-}
-
-// Listen get a connection.
-func (nc *networkCard) listenInParallel() {
-	type captureInfo struct {
-		bytes []byte
-		captureInfo gopacket.CaptureInfo
-	}
-
-	rawDataChan := make(chan *captureInfo, 20)
-	packageChan := make(chan gopacket.Packet, 20)
-
-	// read packet
-	go func() {
-		defer func() {
-			close(packageChan)
-		}()
-
-		handler := initEthernetHandlerFromPacpgo()
-		for {
-			var data []byte
-			// data, ci, err := handler.ZeroCopyReadPacketData()
-			data, ci, err := handler.ReadPacketData()
-			if err != nil {
-				log.Error(err.Error())
-				time.Sleep(time.Second*3)
-				continue
-			}
-
-			rawDataChan <- &captureInfo{
-				bytes: data,
-				captureInfo: ci,
-			}
-		}
-	}()
-
-	// parse package
-	go func() {
-		for captureInfo := range rawDataChan {
-			packet := gopacket.NewPacket(captureInfo.bytes, layers.LayerTypeEthernet, gopacket.NoCopy)
-			m := packet.Metadata()
-			m.CaptureInfo = captureInfo.captureInfo
-			m.Truncated = m.Truncated || captureInfo.captureInfo.CaptureLength < captureInfo.captureInfo.Length
-
-			packageChan <- packet
-		}
-	}()
-
-	// parse package
-	go func() {
-		for packet := range packageChan {
 			nc.parseTCPPackage(packet)
 		}
 	}()
