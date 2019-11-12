@@ -144,7 +144,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 
 	if ms.expectReceiveSize == -1 {
 		// ignore invalid head package
-		if len(bytes) <= 4{
+		if len(bytes) <= 4 {
 			return
 		}
 
@@ -208,6 +208,10 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	// ms.expectReceiveSize = ms.expectReceiveSize - int(contentSize)
 }
 
+func IsAuthPacket(val byte) bool {
+	return val > 32
+}
+
 func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	defer ms.clear()
 
@@ -227,7 +231,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 	var mqp *model.PooledMysqlQueryPiece
 	var querySQLInBytes []byte
-	if ms.cachedStmtBytes[0] > 32 {
+	if IsAuthPacket(ms.cachedStmtBytes[0]) {
 		userName, dbName, err := parseAuthInfo(ms.cachedStmtBytes)
 		if err != nil {
 			log.Errorf("parse auth info failed <-- %s", err.Error())
