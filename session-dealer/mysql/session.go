@@ -208,7 +208,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 	// ms.expectReceiveSize = ms.expectReceiveSize - int(contentSize)
 }
 
-func IsAuthPacket(val byte) bool {
+func IsAuth(val byte) bool {
 	return val > 32
 }
 
@@ -231,7 +231,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 
 	var mqp *model.PooledMysqlQueryPiece
 	var querySQLInBytes []byte
-	if IsAuthPacket(ms.cachedStmtBytes[0]) {
+	if IsAuth(ms.cachedStmtBytes[0]) {
 		userName, dbName, err := parseAuthInfo(ms.cachedStmtBytes)
 		if err != nil {
 			log.Errorf("parse auth info failed <-- %s", err.Error())

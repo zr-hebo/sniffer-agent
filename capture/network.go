@@ -134,10 +134,9 @@ func (nc *networkCard) listenNormal() {
 
 			// send FIN tcp packet to avoid not complete session cannot be released
 			tcpPkt := packet.TransportLayer().(*layers.TCP)
-			payLoad := tcpPkt.Payload
 			// deal FIN packet
 			// deal auth packet
-			if tcpPkt.FIN || (len(payLoad) >= 5 && sd.IsAuthPacket(payLoad[4])) {
+			if tcpPkt.FIN || sd.IsAuthPacket(tcpPkt.Payload) {
 				nc.parseTCPPackage(packet)
 				continue
 			}
