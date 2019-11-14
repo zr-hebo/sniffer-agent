@@ -31,17 +31,17 @@ func init() {
 
 // networkCard is network device
 type networkCard struct {
-	name string
+	name       string
 	listenPort int
-	receiver chan model.QueryPiece
+	receiver   chan model.QueryPiece
 }
 
 func NewNetworkCard() (nc *networkCard) {
 	// init device
 	return &networkCard{
-		name: DeviceName,
+		name:       DeviceName,
 		listenPort: snifferPort,
-		receiver: make(chan model.QueryPiece, 100),
+		receiver:   make(chan model.QueryPiece, 100),
 	}
 }
 
@@ -93,17 +93,9 @@ func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 }
 
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
-	// if inParallel {
-	// 	nc.listenInParallel()
-	//
-	// } else {
-	// 	nc.listenNormal()
-	// }
-
 	nc.listenNormal()
 	return nc.receiver
 }
-
 
 // Listen get a connection.
 func (nc *networkCard) listenNormal() {
@@ -119,7 +111,7 @@ func (nc *networkCard) listenNormal() {
 			// capture packets according to a certain probability
 			capturePacketRate := communicator.GetTCPCapturePacketRate()
 			if capturePacketRate <= 0 {
-				time.Sleep(time.Second*1)
+				time.Sleep(time.Second * 1)
 				aliveCounter += 1
 				if aliveCounter >= checkCount {
 					aliveCounter = 0
@@ -131,7 +123,7 @@ func (nc *networkCard) listenNormal() {
 			data, ci, err = handler.ZeroCopyReadPacketData()
 			if err != nil {
 				log.Error(err.Error())
-				time.Sleep(time.Second*3)
+				time.Sleep(time.Second * 3)
 				continue
 			}
 
@@ -142,7 +134,9 @@ func (nc *networkCard) listenNormal() {
 
 			// send FIN tcp packet to avoid not complete session cannot be released
 			tcpPkt := packet.TransportLayer().(*layers.TCP)
-			if tcpPkt.FIN {
+			// deal FIN packet
+			// deal auth packet
+			if tcpPkt.FIN || sd.IsAuthPacket(tcpPkt.Payload) {
 				nc.parseTCPPackage(packet)
 				continue
 			}
@@ -156,62 +150,6 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			aliveCounter = 0
-			nc.parseTCPPackage(packet)
-		}
-	}()
-
-	return
-}
-
-// Listen get a connection.
-func (nc *networkCard) listenInParallel() {
-	type captureInfo struct {
-		bytes []byte
-		captureInfo gopacket.CaptureInfo
-	}
-
-	rawDataChan := make(chan *captureInfo, 20)
-	packageChan := make(chan gopacket.Packet, 20)
-
-	// read packet
-	go func() {
-		defer func() {
-			close(packageChan)
-		}()
-
-		handler := initEthernetHandlerFromPacpgo()
-		for {
-			var data []byte
-			// data, ci, err := handler.ZeroCopyReadPacketData()
-			data, ci, err := handler.ReadPacketData()
-			if err != nil {
-				log.Error(err.Error())
-				time.Sleep(time.Second*3)
-				continue
-			}
-
-			rawDataChan <- &captureInfo{
-				bytes: data,
-				captureInfo: ci,
-			}
-		}
-	}()
-
-	// parse package
-	go func() {
-		for captureInfo := range rawDataChan {
-			packet := gopacket.NewPacket(captureInfo.bytes, layers.LayerTypeEthernet, gopacket.NoCopy)
-			m := packet.Metadata()
-			m.CaptureInfo = captureInfo.captureInfo
-			m.Truncated = m.Truncated || captureInfo.captureInfo.CaptureLength < captureInfo.captureInfo.Length
-
-			packageChan <- packet
-		}
-	}()
-
-	// parse package
-	go func() {
-		for packet := range packageChan {
 			nc.parseTCPPackage(packet)
 		}
 	}()
@@ -337,4 +275,3 @@ func readToServerPackage(
 
 	return
 }
-

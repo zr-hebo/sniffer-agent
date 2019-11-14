@@ -100,13 +100,19 @@ func (crp *coveragePool) NewCoverage(begin, end int64)(cn *coverageNode)  {
 	return
 }
 
-func (crp *coveragePool) Enqueue(cn *coverageNode)  {
+func (crp *coveragePool) Enqueue(cn *coverageNode) {
 	// log.Debugf("coveragePool enqueue: %d", len(crp.queue))
 	if cn == nil {
 		return
 	}
 
-	crp.queue <- cn
+	select {
+	case crp.queue <- cn:
+		return
+
+	default:
+		cn = nil
+	}
 }
 
 func (crp *coveragePool) Dequeue() (cn *coverageNode)  {
@@ -122,6 +128,7 @@ func (crp *coveragePool) Dequeue() (cn *coverageNode)  {
 	select {
 	case cn = <- crp.queue:
 		return
+
 	default:
 		cn = &coverageNode{}
 		return

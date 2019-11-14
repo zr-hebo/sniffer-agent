@@ -24,3 +24,13 @@ func CheckParams()  {
 		mysql.CheckParams()
 	}
 }
+
+func IsAuthPacket(payload []byte) bool {
+	switch serviceType {
+	case ServiceTypeMysql:
+		return len(payload) >= 5 && mysql.IsAuth(payload[4])
+
+	default:
+		return false
+	}
+}

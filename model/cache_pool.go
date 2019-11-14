@@ -30,7 +30,12 @@ func (sbp *sliceBufferPool) Enqueue(buffer []byte)  {
 		return
 	}
 
-	sbp.queue <- buffer
+	select {
+	case sbp.queue <- buffer:
+		return
+	default:
+		buffer = nil
+	}
 }
 
 func (sbp *sliceBufferPool) DequeueWithInit(initSize int) (buffer []byte)  {
