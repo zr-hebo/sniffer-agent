@@ -11,16 +11,16 @@ type configItem interface {
 }
 
 type capturePacketRateConfig struct {
-	name string
-	tcpTPR float64
-	mysqlTPR float64
+	name     string
+	tcpCPR   float64
+	mysqlCPR float64
 }
 
 func newCapturePacketRateConfig() (cprc *capturePacketRateConfig) {
 	cprc = &capturePacketRateConfig{
 		name:     CAPTURE_PACKET_RATE,
-		tcpTPR:   1.0,
-		mysqlTPR: 1.0,
+		tcpCPR:   1.0,
+		mysqlCPR: 1.0,
 	}
 	return
 }
@@ -33,11 +33,11 @@ func (cprc *capturePacketRateConfig) setVal (val interface{}) (err error){
 	}
 
 	fmt.Printf("set config %s: %v\n", CAPTURE_PACKET_RATE, realVal)
-	cprc.mysqlTPR = realVal
-	cprc.tcpTPR = math.Sqrt(realVal)
+	cprc.mysqlCPR = realVal
+	cprc.tcpCPR = math.Sqrt(realVal)
 	return
 }
 
 func (cprc *capturePacketRateConfig) getVal () (val interface{}){
-	return cprc.mysqlTPR
+	return cprc.mysqlCPR
 }

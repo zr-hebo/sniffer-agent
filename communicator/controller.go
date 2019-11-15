@@ -89,9 +89,9 @@ func outletSetConfig(resp http.ResponseWriter, req *http.Request) {
 }
 
 func GetTCPCapturePacketRate() float64 {
-	return catpurePacketRate.tcpTPR
+	return catpurePacketRate.tcpCPR
 }
 
 func GetMysqlCapturePacketRate() float64 {
-	return catpurePacketRate.mysqlTPR
+	return catpurePacketRate.mysqlCPR
 }
