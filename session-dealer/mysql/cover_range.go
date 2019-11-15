@@ -6,17 +6,17 @@ type coverageNode struct {
 	end   int64
 
 	next *coverageNode
-	crp *coveragePool
+	crp  *coveragePool
 }
 
 func newCoverage(begin, end int64) (*coverageNode) {
 	return &coverageNode{
 		begin: begin,
-		end: end,
+		end:   end,
 	}
 }
 
-func (crn *coverageNode) Recovery()  {
+func (crn *coverageNode) Recovery() {
 	crn.crp.Enqueue(crn)
 }
 
@@ -28,6 +28,7 @@ func NewCoverRanges() *coverRanges {
 	return &coverRanges{
 		head: &coverageNode{
 			begin: -1,
+			end:   -1,
 		},
 	}
 }
@@ -42,7 +43,7 @@ func (crs *coverRanges) clear() {
 	crs.head.next = nil
 }
 
-func (crs *coverRanges) addRange(node *coverageNode)  {
+func (crs *coverRanges) addRange(node *coverageNode) {
 	// insert range in asc order
 	var currRange = crs.head;
 	for currRange != nil && currRange.next != nil {
@@ -52,10 +53,9 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 			node.next = checkRange
 			node = nil
 			break
-
-		} else {
-			currRange = checkRange
 		}
+
+		currRange = checkRange
 	}
 
 	if node != nil && currRange != nil {
@@ -65,12 +65,12 @@ func (crs *coverRanges) addRange(node *coverageNode)  {
 	crs.mergeRanges()
 }
 
-func (crs *coverRanges) mergeRanges()  {
+func (crs *coverRanges) mergeRanges() {
 	// merge ranges
 	currRange := crs.head.next
 	for currRange != nil && currRange.next != nil {
 		checkRange := currRange.next
-		if currRange.end >= checkRange.begin && currRange.end < checkRange.end {
+		if currRange.begin <= checkRange.begin && currRange.end >= checkRange.begin && currRange.end < checkRange.end {
 			currRange.end = checkRange.end
 			currRange.next = checkRange.next
 			checkRange.Recovery()
@@ -81,11 +81,9 @@ func (crs *coverRanges) mergeRanges()  {
 	}
 }
 
-
 type coveragePool struct {
-	queue  chan *coverageNode
+	queue chan *coverageNode
 }
-
 
 func NewCoveragePool() (cp *coveragePool) {
 	return &coveragePool{
@@ -93,7 +91,7 @@ func NewCoveragePool() (cp *coveragePool) {
 	}
 }
 
-func (crp *coveragePool) NewCoverage(begin, end int64)(cn *coverageNode)  {
+func (crp *coveragePool) NewCoverage(begin, end int64) (cn *coverageNode) {
 	cn = crp.Dequeue()
 	cn.begin = begin
 	cn.end = end
@@ -115,7 +113,7 @@ func (crp *coveragePool) Enqueue(cn *coverageNode) {
 	}
 }
 
-func (crp *coveragePool) Dequeue() (cn *coverageNode)  {
+func (crp *coveragePool) Dequeue() (cn *coverageNode) {
 	// log.Debugf("coveragePool dequeue: %d", len(crp.queue))
 
 	defer func() {
@@ -126,7 +124,7 @@ func (crp *coveragePool) Dequeue() (cn *coverageNode)  {
 	}()
 
 	select {
-	case cn = <- crp.queue:
+	case cn = <-crp.queue:
 		return
 
 	default:

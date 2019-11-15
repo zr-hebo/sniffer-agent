@@ -87,7 +87,7 @@ func (ms *MysqlSession) ReceiveTCPPacket(newPkt *model.TCPPacket) {
 		ms.readFromClient(newPkt.Seq, newPkt.Payload)
 
 	} else {
-		ms.readFromServer(newPkt.Payload)
+		ms.readFromServer(newPkt.Seq, newPkt.Payload)
 		qp := ms.GenerateQueryPiece()
 		if qp != nil {
 			ms.queryPieceReceiver <- qp
@@ -99,13 +99,17 @@ func (ms *MysqlSession) resetBeginTime() {
 	ms.stmtBeginTime = time.Now().UnixNano() / millSecondUnit
 }
 
-func (ms *MysqlSession) readFromServer(bytes []byte) {
+func (ms *MysqlSession) readFromServer(respSeq int64, bytes []byte) {
 	if ms.expectSendSize < 1 && len(bytes) > 4 {
 		ms.expectSendSize = extractMysqlPayloadSize(bytes[:4])
 		contents := bytes[4:]
 		if ms.prepareInfo != nil && contents[0] == 0 {
 			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
 		}
+	}
+
+	if ms.coverRanges.head.next == nil || ms.coverRanges.head.next.end != respSeq {
+		ms.clear()
 	}
 }
 
