@@ -128,8 +128,8 @@ func (nc *networkCard) listenNormal() {
 				continue
 			}
 
-			// packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
-			packet := gopacket.NewPacket(data, handler.LinkType(), gopacket.NoCopy)
+			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
+			// packet := gopacket.NewPacket(data, handler.LinkType(), gopacket.NoCopy)
 			m := packet.Metadata()
 			m.CaptureInfo = ci
 
