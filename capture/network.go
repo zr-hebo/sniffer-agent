@@ -78,6 +78,7 @@ func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
 	return
 }
 
+// in online use, we found a strange bug: pcap cost 100% core CPU and memory increase along
 func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
 	handler, err := pcap.OpenLive(DeviceName, 65536, false, pcap.BlockForever)
 	if err != nil {
@@ -101,7 +102,7 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 func (nc *networkCard) listenNormal() {
 	go func() {
 		aliveCounter := 0
-		handler := initEthernetHandlerFromPacp()
+		handler := initEthernetHandlerFromPacpgo()
 
 		for {
 			var data []byte
