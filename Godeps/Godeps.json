@@ -95,6 +95,10 @@
 			"Rev": "360ef5cee790475e9d75cb349e1b47b0a7a4efee"
 		},
 		{
+			"ImportPath": "github.com/pires/go-proxyproto",
+			"Rev": "83d61d90241fdbce96130ef0cc4ce5e495a95bdf"
+		},
+		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
 			"Rev": "e181e095bae94582363434144c61a9653aff6e50"
 		},

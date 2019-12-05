@@ -15,6 +15,7 @@ type MysqlSession struct {
 	connectionID  *string
 	visitUser     *string
 	visitDB       *string
+	clientAlias   *string
 	clientHost    *string
 	clientPort    int
 	serverIP      *string
@@ -46,10 +47,11 @@ type prepareInfo struct {
 }
 
 func NewMysqlSession(
-	sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int,
+	sessionKey, clientAlias, clientIP *string, clientPort int, serverIP *string, serverPort int,
 	receiver chan model.QueryPiece) (ms *MysqlSession) {
 	ms = &MysqlSession{
 		connectionID:       sessionKey,
+		clientAlias:        clientAlias,
 		clientHost:         clientIP,
 		clientPort:         clientPort,
 		serverIP:           serverIP,
@@ -333,6 +335,10 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (*
 }
 
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
+	clientIP := ms.clientAlias
+	if clientIP == nil || len(*clientIP) < 1 {
+		clientIP = ms.clientHost
+	}
 	return model.NewPooledMysqlQueryPiece(
 		ms.connectionID, ms.clientHost, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP,
 		ms.clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
