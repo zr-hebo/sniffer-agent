@@ -96,7 +96,7 @@ const (
 // See https://dev.mysql.com/doc/refman/5.7/en/identifiers.html
 const (
 	// MaxMysqlPacketLen is the max packet payload length.
-	MaxMysqlPacketLen = 1 * 1024 * 1024
+	MaxMysqlPacketLen = 512 * 1024
 )
 
 const (

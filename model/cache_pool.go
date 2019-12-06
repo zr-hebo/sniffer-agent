@@ -15,7 +15,7 @@ type sliceBufferPool struct {
 
 func NewSliceBufferPool(name string, bufferSize int) (sbp *sliceBufferPool) {
 	return &sliceBufferPool{
-		queue: make(chan []byte, 512),
+		queue: make(chan []byte, 256),
 		bufferSize: bufferSize,
 		name: name,
 	}
