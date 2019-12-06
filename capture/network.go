@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/bpf"
 
 	"github.com/google/gopacket/pcapgo"
-	proto "github.com/pires/go-proxyproto"
+	pp "github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/model"
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
@@ -147,14 +147,8 @@ func (nc *networkCard) listenNormal() {
 
 			// deal auth packet
 			if sd.IsAuthPacket(tcpPkt.Payload) {
-				reader := bufio.NewReader(bytes.NewReader(data))
-				header, _ := proto.Read(reader)
-				var clientIP *string
-				if header != nil {
-					clientIPContent := header.SourceAddress.String()
-					clientIP = &clientIPContent
-				}
-				nc.parseTCPPackage(packet, clientIP)
+				authHeader, _ := pp.Read(bufio.NewReader(bytes.NewReader(tcpPkt.Payload)))
+				nc.parseTCPPackage(packet, authHeader)
 				continue
 			}
 
@@ -174,7 +168,7 @@ func (nc *networkCard) listenNormal() {
 	return
 }
 
-func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, clientIP *string) {
+func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.Header) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -203,9 +197,19 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, clientIP *string)
 	dstIP := ipInfo.DstIP.String()
 	srcPort := int(tcpPkt.SrcPort)
 	dstPort := int(tcpPkt.DstPort)
+
 	if dstPort == nc.listenPort {
+		// get client ip from proxy auth info
+		var clientIP *string
+		var clientPort int
+		if authHeader != nil && authHeader.SourceAddress.String() != srcIP {
+			clientIPContent := authHeader.SourceAddress.String()
+			clientIP = &clientIPContent
+			clientPort = int(authHeader.SourcePort)
+		}
+
 		// deal mysql server response
-		err = readToServerPackage(clientIP, &srcIP, srcPort, tcpPkt, nc.receiver)
+		err = readToServerPackage(clientIP, clientPort, &srcIP, srcPort, tcpPkt, nc.receiver)
 		if err != nil {
 			return
 		}
@@ -255,7 +259,8 @@ func readFromServerPackage(
 }
 
 func readToServerPackage(
-	clientIP, srcIP *string, srcPort int, tcpPkt *layers.TCP, receiver chan model.QueryPiece) (err error) {
+	clientIP *string, clientPort int, srcIP *string, srcPort int, tcpPkt *layers.TCP,
+	receiver chan model.QueryPiece) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read package send from client to mysql server failed <-- %s", err.Error())
@@ -282,7 +287,7 @@ func readToServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session == nil {
-		session = sd.NewSession(sessionKey, clientIP, srcIP, srcPort, localIPAddr, snifferPort, receiver)
+		session = sd.NewSession(sessionKey, clientIP, clientPort, srcIP, srcPort, localIPAddr, snifferPort, receiver)
 		sessionPool[*sessionKey] = session
 	}
 

@@ -5,13 +5,13 @@ import (
 	"github.com/zr-hebo/sniffer-agent/session-dealer/mysql"
 )
 
-func NewSession(sessionKey, clientAlias, clientIP *string, clientPort int, serverIP *string, serverPort int,
+func NewSession(sessionKey, clientIP *string, clientPort int, srcIP *string, srcPort int, serverIP *string, serverPort int,
 	receiver chan model.QueryPiece) (session ConnSession) {
 	switch serviceType {
 	case ServiceTypeMysql:
-		session = mysql.NewMysqlSession(sessionKey, clientAlias, clientIP, clientPort, serverIP, serverPort, receiver)
+		session = mysql.NewMysqlSession(sessionKey, clientIP, clientPort, srcIP, srcPort, serverIP, serverPort, receiver)
 	default:
-		session = mysql.NewMysqlSession(sessionKey, clientAlias, clientIP, clientPort, serverIP, serverPort, receiver)
+		session = mysql.NewMysqlSession(sessionKey, clientIP, clientPort, srcIP, srcPort, serverIP, serverPort, receiver)
 	}
 	return
 }
