@@ -339,7 +339,7 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (*
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
 	clientIP := ms.clientIP
 	clientPort := ms.clientPort
-	if clientIP == nil || len(*clientIP) < 1 {
+	if clientIP == nil {
 		clientIP = ms.srcIP
 		clientPort = ms.serverPort
 	}
