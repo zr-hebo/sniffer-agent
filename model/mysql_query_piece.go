@@ -26,7 +26,7 @@ type PooledMysqlQueryPiece struct {
 }
 
 func NewPooledMysqlQueryPiece(
-	sessionID, clientIP, visitUser, visitDB, clientHost, serverIP *string,
+	sessionID, clientIP, visitUser, visitDB, serverIP *string,
 	clientPort, serverPort int, throwPacketRate float64, stmtBeginTime int64) (
 	mqp *PooledMysqlQueryPiece) {
 	mqp = mqpp.Dequeue()
@@ -35,7 +35,6 @@ func NewPooledMysqlQueryPiece(
 	mqp.SessionID = sessionID
 	mqp.ClientHost = clientIP
 	mqp.ClientPort = clientPort
-	mqp.ClientHost = clientHost
 	mqp.ServerIP = serverIP
 	mqp.ServerPort = serverPort
 	mqp.VisitUser = visitUser

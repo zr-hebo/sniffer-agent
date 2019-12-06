@@ -15,8 +15,10 @@ type MysqlSession struct {
 	connectionID  *string
 	visitUser     *string
 	visitDB       *string
-	clientHost    *string
+	clientIP      *string
 	clientPort    int
+	srcIP         *string
+	srcPort       int
 	serverIP      *string
 	serverPort    int
 	stmtBeginTime int64
@@ -46,12 +48,14 @@ type prepareInfo struct {
 }
 
 func NewMysqlSession(
-	sessionKey *string, clientIP *string, clientPort int, serverIP *string, serverPort int,
+	sessionKey, clientIP *string, clientPort int, srcIP *string, srcPort int, serverIP *string, serverPort int,
 	receiver chan model.QueryPiece) (ms *MysqlSession) {
 	ms = &MysqlSession{
 		connectionID:       sessionKey,
-		clientHost:         clientIP,
+		clientIP:           clientIP,
 		clientPort:         clientPort,
+		srcIP:              srcIP,
+		srcPort:            srcPort,
 		serverIP:           serverIP,
 		serverPort:         serverPort,
 		stmtBeginTime:      time.Now().UnixNano() / millSecondUnit,
@@ -333,7 +337,13 @@ func filterQueryPieceBySQL(mqp *model.PooledMysqlQueryPiece, querySQL []byte) (*
 }
 
 func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
+	clientIP := ms.clientIP
+	clientPort := ms.clientPort
+	if clientIP == nil || len(*clientIP) < 1 {
+		clientIP = ms.srcIP
+		clientPort = ms.serverPort
+	}
 	return model.NewPooledMysqlQueryPiece(
-		ms.connectionID, ms.clientHost, ms.visitUser, ms.visitDB, ms.clientHost, ms.serverIP,
-		ms.clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
+		ms.connectionID, clientIP, ms.visitUser, ms.visitDB, ms.serverIP,
+		clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
 }

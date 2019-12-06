@@ -1,17 +1,21 @@
 package capture
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/zr-hebo/sniffer-agent/communicator"
 	"golang.org/x/net/bpf"
-	"math/rand"
-	"time"
 
 	"github.com/google/gopacket/pcapgo"
+	pp "github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/model"
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
@@ -133,12 +137,18 @@ func (nc *networkCard) listenNormal() {
 			m := packet.Metadata()
 			m.CaptureInfo = ci
 
-			// send FIN tcp packet to avoid not complete session cannot be released
 			tcpPkt := packet.TransportLayer().(*layers.TCP)
+			// send FIN tcp packet to avoid not complete session cannot be released
 			// deal FIN packet
+			if tcpPkt.FIN {
+				nc.parseTCPPackage(packet, nil)
+				continue
+			}
+
 			// deal auth packet
-			if tcpPkt.FIN || sd.IsAuthPacket(tcpPkt.Payload) {
-				nc.parseTCPPackage(packet)
+			if sd.IsAuthPacket(tcpPkt.Payload) {
+				authHeader, _ := pp.Read(bufio.NewReader(bytes.NewReader(tcpPkt.Payload)))
+				nc.parseTCPPackage(packet, authHeader)
 				continue
 			}
 
@@ -151,14 +161,14 @@ func (nc *networkCard) listenNormal() {
 			}
 
 			aliveCounter = 0
-			nc.parseTCPPackage(packet)
+			nc.parseTCPPackage(packet, nil)
 		}
 	}()
 
 	return
 }
 
-func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) {
+func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.Header) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -183,14 +193,23 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet) {
 		return
 	}
 
-	// get IP from ip layer
 	srcIP := ipInfo.SrcIP.String()
 	dstIP := ipInfo.DstIP.String()
 	srcPort := int(tcpPkt.SrcPort)
 	dstPort := int(tcpPkt.DstPort)
+
 	if dstPort == nc.listenPort {
+		// get client ip from proxy auth info
+		var clientIP *string
+		var clientPort int
+		if authHeader != nil && authHeader.SourceAddress.String() != srcIP {
+			clientIPContent := authHeader.SourceAddress.String()
+			clientIP = &clientIPContent
+			clientPort = int(authHeader.SourcePort)
+		}
+
 		// deal mysql server response
-		err = readToServerPackage(&srcIP, srcPort, tcpPkt, nc.receiver)
+		err = readToServerPackage(clientIP, clientPort, &srcIP, srcPort, tcpPkt, nc.receiver)
 		if err != nil {
 			return
 		}
@@ -240,7 +259,8 @@ func readFromServerPackage(
 }
 
 func readToServerPackage(
-	srcIP *string, srcPort int, tcpPkt *layers.TCP, receiver chan model.QueryPiece) (err error) {
+	clientIP *string, clientPort int, srcIP *string, srcPort int, tcpPkt *layers.TCP,
+	receiver chan model.QueryPiece) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read package send from client to mysql server failed <-- %s", err.Error())
@@ -267,7 +287,7 @@ func readToServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session == nil {
-		session = sd.NewSession(sessionKey, srcIP, srcPort, localIPAddr, snifferPort, receiver)
+		session = sd.NewSession(sessionKey, clientIP, clientPort, srcIP, srcPort, localIPAddr, snifferPort, receiver)
 		sessionPool[*sessionKey] = session
 	}
 
