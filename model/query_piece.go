@@ -34,7 +34,7 @@ const (
 
 var (
 	mqpp                 = NewMysqlQueryPiecePool()
-	localSliceBufferPool = NewSliceBufferPool("json cache", 1*1024*1024)
+	localSliceBufferPool = NewSliceBufferPool("json cache", 256*1024)
 )
 
 var commonBaseQueryPiece = &BaseQueryPiece{}
