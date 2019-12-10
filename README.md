@@ -7,7 +7,7 @@
 
 架构设计：
 
-本项目采用模块化设计，主要分为四大模块：抓包模块，协议解析模块，输出模块，心跳模块
+本项目采用模块化设计，主要分为四大模块：TCP抓包模块，协议解析模块，输出模块，心跳模块
 ![架构设计图](https://github.com/zr-hebo/sniffer-agent/blob/master/images/arch.png)
 
 ### Parse Protocol
@@ -17,6 +17,7 @@ sniffer-agent采用模块化结构，支持用户添加自己的解析模块，�
 - [ ] PostgreSQL
 - [ ] Redis
 - [ ] Mongodb
+- [ ] GRPC
 
 目前输出的内容都是解析结果组成的json。
 MySQL协议的解析结果示例如下：
