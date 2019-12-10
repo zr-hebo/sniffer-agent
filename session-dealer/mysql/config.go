@@ -3,7 +3,7 @@ package mysql
 import (
 	"flag"
 	"fmt"
-	"github.com/zr-hebo/sniffer-agent/model"
+	"github.com/zr-hebo/sniffer-agent/util"
 	"regexp"
 )
 
@@ -18,7 +18,7 @@ var (
 	adminPasswd string
 
 	coverRangePool = NewCoveragePool()
-	localStmtCache = model.NewSliceBufferPool("statement cache", MaxMysqlPacketLen)
+	localStmtCache = util.NewSliceBufferPool("statement cache", MaxMysqlPacketLen)
 
 	PrepareStatement = []byte(":prepare")
 )

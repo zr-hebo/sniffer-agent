@@ -1,4 +1,4 @@
-package model
+package util
 
 import (
 	"fmt"
@@ -6,22 +6,22 @@ import (
 	"unsafe"
 )
 
-
-type sliceBufferPool struct {
+// sliceBufferPool bytes buffer for reuse
+type SliceBufferPool struct {
 	queue chan []byte
 	bufferSize int
 	name string
 }
 
-func NewSliceBufferPool(name string, bufferSize int) (sbp *sliceBufferPool) {
-	return &sliceBufferPool{
+func NewSliceBufferPool(name string, bufferSize int) (sbp *SliceBufferPool) {
+	return &SliceBufferPool{
 		queue: make(chan []byte, 256),
 		bufferSize: bufferSize,
 		name: name,
 	}
 }
 
-func (sbp *sliceBufferPool) Enqueue(buffer []byte)  {
+func (sbp *SliceBufferPool) Enqueue(buffer []byte)  {
 	// defer func() {
 	// 	log.Debugf("after enqueue from %s, there is %d elements", sbp.name, len(sbp.queue))
 	// }()
@@ -38,7 +38,7 @@ func (sbp *sliceBufferPool) Enqueue(buffer []byte)  {
 	}
 }
 
-func (sbp *sliceBufferPool) DequeueWithInit(initSize int) (buffer []byte)  {
+func (sbp *SliceBufferPool) DequeueWithInit(initSize int) (buffer []byte)  {
 	if initSize >= sbp.bufferSize {
 		panic(fmt.Sprintf("package size bigger than max buffer size need deal:%d",
 			sbp.bufferSize))
@@ -54,7 +54,7 @@ func (sbp *sliceBufferPool) DequeueWithInit(initSize int) (buffer []byte)  {
 	return
 }
 
-func (sbp *sliceBufferPool) Dequeue() (buffer []byte)  {
+func (sbp *SliceBufferPool) Dequeue() (buffer []byte)  {
 	// defer func() {
 	// 	log.Debugf("after dequeue from %s, there is %d elements", sbp.name, len(sbp.queue))
 	// }()
