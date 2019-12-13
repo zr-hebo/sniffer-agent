@@ -24,7 +24,7 @@ type BaseQueryPiece struct {
 	ServerIP          *string `json:"sip"`
 	ServerPort        int     `json:"sport"`
 	CapturePacketRate float64 `json:"cpr"`
-	BeginTime         int64   `json:"bt"`
+	EventTime         int64   `json:"bt"`
 	jsonContent       []byte  `json:"-"`
 }
 
@@ -33,8 +33,7 @@ const (
 )
 
 var (
-	mqpp                 = NewMysqlQueryPiecePool()
-	localSliceBufferPool = NewSliceBufferPool("json cache", 256*1024)
+	mqpp = NewMysqlQueryPiecePool()
 )
 
 var commonBaseQueryPiece = &BaseQueryPiece{}
@@ -47,7 +46,7 @@ func NewBaseQueryPiece(
 	bqp.ServerPort = serverPort
 	bqp.SyncSend = false
 	bqp.CapturePacketRate = capturePacketRate
-	bqp.BeginTime = time.Now().UnixNano() / millSecondUnit
+	bqp.EventTime = time.Now().UnixNano() / millSecondUnit
 
 	return
 }
@@ -83,11 +82,7 @@ func (bqp *BaseQueryPiece) GetSQL() (*string) {
 func (bqp *BaseQueryPiece) Recovery() {
 }
 
-func marsharQueryPieceShareMemory(qp interface{}) []byte {
-	var cacheBuffer = localSliceBufferPool.Dequeue()
-	if len(cacheBuffer) > 0 {
-		panic("there already have bytes in buffer")
-	}
+func marsharQueryPieceShareMemory(qp interface{}, cacheBuffer []byte) []byte {
 
 	buffer := bytes.NewBuffer(cacheBuffer)
 	err := json.NewEncoder(buffer).Encode(qp)
