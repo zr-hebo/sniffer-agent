@@ -1,8 +1,6 @@
 package model
 
 import (
-	"bytes"
-	"encoding/json"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pingcap/tidb/util/hack"
 	"time"
@@ -82,8 +80,8 @@ func (bqp *BaseQueryPiece) GetSQL() (*string) {
 func (bqp *BaseQueryPiece) Recovery() {
 }
 
+/**
 func marsharQueryPieceShareMemory(qp interface{}, cacheBuffer []byte) []byte {
-
 	buffer := bytes.NewBuffer(cacheBuffer)
 	err := json.NewEncoder(buffer).Encode(qp)
 	if err != nil {
@@ -92,6 +90,7 @@ func marsharQueryPieceShareMemory(qp interface{}, cacheBuffer []byte) []byte {
 
 	return buffer.Bytes()
 }
+*/
 
 func marsharQueryPieceMonopolize(qp interface{}) (content []byte) {
 	content, err := jsonIterator.Marshal(qp)

@@ -1,19 +1,13 @@
 package model
 
 import (
-	"github.com/zr-hebo/sniffer-agent/util"
 	"sync"
 	"time"
-)
-
-var (
-	localSliceBufferPool = util.NewSliceBufferPool("json cache", (128+1)*1024)
 )
 
 type PooledMysqlQueryPiece struct {
 	MysqlQueryPiece
 	recoverPool     *mysqlQueryPiecePool
-	sliceBufferPool *util.SliceBufferPool
 }
 
 func NewPooledMysqlQueryPiece(
@@ -22,7 +16,6 @@ func NewPooledMysqlQueryPiece(
 	pmqp *PooledMysqlQueryPiece) {
 	pmqp = mqpp.Dequeue()
 
-	pmqp.sliceBufferPool = localSliceBufferPool
 	nowInMS := time.Now().UnixNano() / millSecondUnit
 	pmqp.SessionID = sessionID
 	pmqp.ClientHost = clientIP
@@ -41,9 +34,6 @@ func NewPooledMysqlQueryPiece(
 }
 
 func (pmqp *PooledMysqlQueryPiece) Recovery() {
-	if pmqp.sliceBufferPool != nil {
-		pmqp.sliceBufferPool.Enqueue(pmqp.jsonContent[:0])
-	}
 	pmqp.jsonContent = nil
 	pmqp.recoverPool.Enqueue(pmqp)
 }
@@ -59,17 +49,7 @@ func (pmqp *PooledMysqlQueryPiece) Bytes() (content []byte) {
 }
 
 func (pmqp *PooledMysqlQueryPiece) GenerateJsonBytes() {
-	if pmqp.sliceBufferPool == nil {
-		pmqp.jsonContent = marsharQueryPieceMonopolize(pmqp)
-		return
-	}
-
-	var cacheBuffer = pmqp.sliceBufferPool.Dequeue()
-	if len(cacheBuffer) > 0 {
-		panic("there already have bytes in buffer")
-	}
-
-	pmqp.jsonContent = marsharQueryPieceShareMemory(pmqp, cacheBuffer)
+	pmqp.jsonContent = marsharQueryPieceMonopolize(pmqp)
 	return
 }
 
