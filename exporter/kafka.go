@@ -54,7 +54,7 @@ func checkParams()  {
 	case "lz4":
 		compressType = sarama.CompressionLZ4
 	default:
-		panic(fmt.Sprintf("cannot support compress type: %s", compress))
+		panic(fmt.Sprintf("cannot support kafka compress type: %s", compress))
 	}
 
 	fmt.Printf("kafka message compress type: %s", compress)
