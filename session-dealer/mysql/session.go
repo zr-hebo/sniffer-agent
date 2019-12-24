@@ -91,9 +91,15 @@ func (ms *MysqlSession) ReceiveTCPPacket(newPkt *model.TCPPacket) {
 		ms.readFromClient(newPkt.Seq, newPkt.Payload)
 
 	} else {
-		ms.readFromServer(newPkt.Seq, newPkt.Payload)
+		ok, respVal, err := ms.readFromServer(newPkt.Seq, newPkt.Payload)
+		if err != nil {
+			log.Debug(err.Error())
+			return
+		}
+
 		qp := ms.GenerateQueryPiece()
 		if qp != nil {
+			qp.SetResponse(ok, respVal)
 			ms.queryPieceReceiver <- qp
 		}
 	}
@@ -101,20 +107,6 @@ func (ms *MysqlSession) ReceiveTCPPacket(newPkt *model.TCPPacket) {
 
 func (ms *MysqlSession) resetBeginTime() {
 	ms.stmtBeginTime = time.Now().UnixNano() / millSecondUnit
-}
-
-func (ms *MysqlSession) readFromServer(respSeq int64, bytes []byte) {
-	if ms.expectSendSize < 1 && len(bytes) > 4 {
-		ms.expectSendSize = extractMysqlPayloadSize(bytes[:4])
-		contents := bytes[4:]
-		if ms.prepareInfo != nil && contents[0] == 0 {
-			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
-		}
-	}
-
-	if ms.coverRanges.head.next == nil || ms.coverRanges.head.next.end != respSeq {
-		ms.clear()
-	}
 }
 
 func (ms *MysqlSession) checkFinish() bool {
@@ -145,6 +137,32 @@ func (ms *MysqlSession) clear() {
 	ms.ignoreAckID = -1
 	ms.sendSize = 0
 	ms.coverRanges.clear()
+}
+
+func (ms *MysqlSession) readFromServer(respSeq int64, bytes []byte) (ok, val int64, err error) {
+	defer func() {
+		// 检查返回包的seqid和请求需要的id是否连续
+		if ms.coverRanges.head.next == nil || ms.coverRanges.head.next.end != respSeq {
+			ms.clear()
+		}
+
+		if err != nil {
+			ms.clear()
+		}
+	}()
+
+	if ms.expectSendSize < 1 && len(bytes) > 4 {
+		ms.expectSendSize = extractMysqlPayloadSize(bytes[:4])
+		contents := bytes[4:]
+		if ms.prepareInfo != nil && contents[0] == 0 {
+			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
+		}
+
+		return parseResponseHeader(contents)
+	}
+
+	err = fmt.Errorf("not need packet")
+	return
 }
 
 func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
@@ -318,7 +336,6 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	if mqp == nil {
 		return nil
 	}
-	mqp.GenerateJsonBytes()
 	return mqp
 }
 

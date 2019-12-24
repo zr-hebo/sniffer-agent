@@ -14,6 +14,7 @@ type QueryPiece interface {
 	GetSQL() *string
 	NeedSyncSend() bool
 	Recovery()
+	SetResponse(int64, int64)
 }
 
 // BaseQueryPiece 查询信息
@@ -78,6 +79,9 @@ func (bqp *BaseQueryPiece) GetSQL() (*string) {
 }
 
 func (bqp *BaseQueryPiece) Recovery() {
+}
+
+func (bqp *BaseQueryPiece) SetResponse(ok, respVal int64) {
 }
 
 /**

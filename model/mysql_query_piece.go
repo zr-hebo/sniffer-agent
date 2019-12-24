@@ -16,6 +16,8 @@ type MysqlQueryPiece struct {
 	VisitDB      *string `json:"db"`
 	QuerySQL     *string `json:"sql"`
 	CostTimeInMS int64   `json:"cms"`
+	OK int64   `json:"ok"`
+	ResponseVal int64   `json:"rv"`
 }
 
 func (mqp *MysqlQueryPiece) String() (*string) {
@@ -41,4 +43,9 @@ func (mqp *MysqlQueryPiece) GenerateJsonBytes() {
 
 func (mqp *MysqlQueryPiece) GetSQL() (str *string) {
 	return mqp.QuerySQL
+}
+
+func (mqp *MysqlQueryPiece) SetResponse(ok, respVal int64) {
+	mqp.OK = ok
+	mqp.ResponseVal = respVal
 }

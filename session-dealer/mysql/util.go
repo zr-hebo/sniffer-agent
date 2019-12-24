@@ -125,6 +125,24 @@ func extractMysqlPayloadSize(header []byte) int {
 	return int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
 }
 
-func bytesToInt(contents []byte) int {
-	return int(uint32(contents[0]) | uint32(contents[1])<<8 | uint32(contents[2])<<16 | uint32(contents[3])<<24)
+func bytesToInt(contents []byte) (val int) {
+	if contents == nil || len(contents) < 1 {
+		return 0
+	}
+
+	for _, byteVal := range contents {
+		val = val * 256 + int(byteVal)
+	}
+	return
+}
+
+func bytesToIntSmallEndian(contents []byte) (val int) {
+	if contents == nil || len(contents) < 1 {
+		return 0
+	}
+
+	for idx := len(contents)-1; idx >= 0; idx -= 1  {
+		val = val * 256 + int(contents[idx])
+	}
+	return
 }

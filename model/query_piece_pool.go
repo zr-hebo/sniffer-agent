@@ -29,6 +29,8 @@ func NewPooledMysqlQueryPiece(
 	pmqp.EventTime = stmtBeginTime
 	pmqp.CostTimeInMS = nowInMS - stmtBeginTime
 	pmqp.recoverPool = mqpp
+	pmqp.OK = 0
+	pmqp.ResponseVal = -1
 
 	return
 }
