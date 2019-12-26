@@ -158,7 +158,7 @@ func (ms *MysqlSession) readFromServer(respSeq int64, bytes []byte) (ok, val int
 			ms.prepareInfo.prepareStmtID = bytesToInt(contents[1:5])
 		}
 
-		return parseResponseHeader(contents)
+		return parseResponseHeader(bytes)
 	}
 
 	err = fmt.Errorf("not need packet")

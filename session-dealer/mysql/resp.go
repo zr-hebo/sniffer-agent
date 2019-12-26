@@ -55,19 +55,19 @@ func parseResponseHeader(payload []byte) (ok, val int64, err error) {
 		fmt.Printf("%#v\n", val)
 	}()
 
-	switch {
-	case payload[0] == PACKET_OK && len(payload)>=7:
-	case payload[0] == PACKET_EOF && len(payload)<=9:
-		// set ok and mysql affected rows number
+	if payload[0] == PACKET_OK && len(payload)>=7 {
 		ok = 1
-		val = lenencInt(payload)
+		val = lenencInt(payload[1:])
 
-	case payload[0] == PACKET_ERR && len(payload)>3:
-		// set not ok and mysql execute error-code
-		ok = 0
-		val = int64(bytesToIntSmallEndian(payload[1:3]))
+	} else if len(payload) > 4 {
+		payload = payload[4:]
+		if payload[0] == PACKET_ERR && len(payload)>3 {
+			// set not ok and mysql execute error-code
+			ok = 0
+			val = int64(bytesToIntSmallEndian(payload[1:3]))
+		}
 
-	default:
+	} else {
 		err = fmt.Errorf("invalid response packet")
 	}
 	return
