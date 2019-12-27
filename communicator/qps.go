@@ -2,6 +2,7 @@ package communicator
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"time"
 )
@@ -54,6 +55,10 @@ func updateCachedExecTime() {
 }
 
 func computeQPS() (qps int64) {
+	if catpurePacketRate.mysqlCPR <= 0 {
+		return 0
+	}
+
 	qpsLock.Lock()
 	defer qpsLock.Unlock()
 
@@ -78,5 +83,8 @@ func computeQPS() (qps int64) {
 		return 0
 	}
 
-	return time.Second.Nanoseconds() / ((nowNano - minExecTimeNano) / recentRecordNum)
+	qpsVal := float64(time.Second.Nanoseconds() /
+		((nowNano - minExecTimeNano) / recentRecordNum)) /
+		catpurePacketRate.mysqlCPR
+	return int64(math.Floor(qpsVal))
 }
