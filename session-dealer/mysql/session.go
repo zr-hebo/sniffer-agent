@@ -12,16 +12,16 @@ import (
 )
 
 type MysqlSession struct {
-	connectionID  *string
-	visitUser     *string
-	visitDB       *string
-	clientIP      *string
-	clientPort    int
-	srcIP         *string
-	srcPort       int
-	serverIP      *string
-	serverPort    int
-	stmtBeginTime int64
+	connectionID      *string
+	visitUser         *string
+	visitDB           *string
+	clientIP          *string
+	clientPort        int
+	srcIP             *string
+	srcPort           int
+	serverIP          *string
+	serverPort        int
+	stmtBeginTimeNano int64
 	// packageOffset            int64
 	beginSeqID               int64
 	endSeqID                 int64
@@ -58,7 +58,7 @@ func NewMysqlSession(
 		srcPort:            srcPort,
 		serverIP:           serverIP,
 		serverPort:         serverPort,
-		stmtBeginTime:      time.Now().UnixNano() / millSecondUnit,
+		stmtBeginTimeNano:  time.Now().UnixNano(),
 		cachedPrepareStmt:  make(map[int][]byte, 8),
 		queryPieceReceiver: receiver,
 		closeConn:          make(chan bool, 1),
@@ -100,7 +100,7 @@ func (ms *MysqlSession) ReceiveTCPPacket(newPkt *model.TCPPacket) {
 }
 
 func (ms *MysqlSession) resetBeginTime() {
-	ms.stmtBeginTime = time.Now().UnixNano() / millSecondUnit
+	ms.stmtBeginTimeNano = time.Now().UnixNano()
 }
 
 func (ms *MysqlSession) readFromServer(respSeq int64, bytes []byte) {
@@ -318,7 +318,8 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	if mqp == nil {
 		return nil
 	}
-	mqp.GenerateJsonBytes()
+
+	communicator.ReceiveExecTime(ms.stmtBeginTimeNano)
 	return mqp
 }
 
@@ -346,5 +347,5 @@ func (ms *MysqlSession) composeQueryPiece() (mqp *model.PooledMysqlQueryPiece) {
 	}
 	return model.NewPooledMysqlQueryPiece(
 		ms.connectionID, clientIP, ms.visitUser, ms.visitDB, ms.serverIP,
-		clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTime)
+		clientPort, ms.serverPort, communicator.GetMysqlCapturePacketRate(), ms.stmtBeginTimeNano)
 }

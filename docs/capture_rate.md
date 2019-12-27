@@ -21,3 +21,8 @@ curl 'http://127.0.0.1:8088/get_config?config_name=capture_packet_rate'
 curl -XPOST -d'{"config_name":"capture_packet_rate","value":0.01}' 'http://127.0.0.1:8088/set_config?config_name=capture_packet_rate'
 ```
 
+#### Get QPS
+为了调整抓包率，sniffer提供了实时查询qps的功能
+```
+curl  'http://127.0.0.1:8088/get_config?config_name=qps'
+```

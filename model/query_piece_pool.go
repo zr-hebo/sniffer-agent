@@ -12,11 +12,10 @@ type PooledMysqlQueryPiece struct {
 
 func NewPooledMysqlQueryPiece(
 	sessionID, clientIP, visitUser, visitDB, serverIP *string,
-	clientPort, serverPort int, throwPacketRate float64, stmtBeginTime int64) (
+	clientPort, serverPort int, throwPacketRate float64, stmtBeginTimeNano int64) (
 	pmqp *PooledMysqlQueryPiece) {
 	pmqp = mqpp.Dequeue()
 
-	nowInMS := time.Now().UnixNano() / millSecondUnit
 	pmqp.SessionID = sessionID
 	pmqp.ClientHost = clientIP
 	pmqp.ClientPort = clientPort
@@ -26,8 +25,8 @@ func NewPooledMysqlQueryPiece(
 	pmqp.VisitDB = visitDB
 	pmqp.SyncSend = false
 	pmqp.CapturePacketRate = throwPacketRate
-	pmqp.EventTime = stmtBeginTime
-	pmqp.CostTimeInMS = nowInMS - stmtBeginTime
+	pmqp.EventTime = stmtBeginTimeNano / millSecondUnit
+	pmqp.CostTimeInMS = (time.Now().UnixNano() - stmtBeginTimeNano) / millSecondUnit
 	pmqp.recoverPool = mqpp
 
 	return
