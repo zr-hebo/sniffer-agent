@@ -9,6 +9,7 @@ import (
 
 const (
 	CAPTURE_PACKET_RATE = "capture_packet_rate"
+	QPS = "qps"
 )
 
 var (
@@ -38,4 +39,5 @@ func init() {
 
 func regsiterConfig()  {
 	configMap[CAPTURE_PACKET_RATE] = catpurePacketRate
+	configMap[QPS] = &qpsConfig{}
 }
