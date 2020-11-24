@@ -16,7 +16,8 @@ var (
 	strictMode bool
 	adminUser string
 	adminPasswd string
-
+	// MaxMysqlPacketLen is the max packet payload length.
+	MaxMysqlPacketLen int
 	coverRangePool = NewCoveragePool()
 	localStmtCache = util.NewSliceBufferPool("statement cache", MaxMysqlPacketLen)
 
@@ -27,6 +28,7 @@ func init() {
 	flag.BoolVar(&strictMode,"strict_mode", false, "strict mode. Default is false")
 	flag.StringVar(&adminUser,"admin_user", "", "admin user name. When set strict mode, must set admin user to query session info")
 	flag.StringVar(&adminPasswd,"admin_passwd", "", "admin user passwd. When use strict mode, must set admin user to query session info")
+	flag.IntVar(&MaxMysqlPacketLen, "max_packet_length", 128 * 1024, "max mysql packet length. Default is 128 * 1024")
 }
 
 func CheckParams()  {

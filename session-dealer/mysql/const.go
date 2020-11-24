@@ -91,13 +91,6 @@ const (
 	GlobalStatusTable = "GLOBAL_STATUS"
 )
 
-
-// Identifier length limitations.
-const (
-	// MaxMysqlPacketLen is the max packet payload length.
-	MaxMysqlPacketLen = 128 * 1024
-)
-
 const (
 	millSecondUnit = int64(time.Millisecond)
 )
