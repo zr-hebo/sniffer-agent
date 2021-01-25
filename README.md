@@ -94,7 +94,7 @@ apt-get install libpcap-dev
 
 2.sniffer-agent提供了Prepare语句的支持，但是如果sniffer-agent在prepare语句初始化之后启动，就无法抓取prepare语句；
 
-3.目前在 MySQL5.5-5.7上测试可用，MySQL8上尚未支持
+3.目前在 MySQL5.5-5.7上测试可用，MySQL8上会出现一些莫名其妙的问题；
 
 ##### License [MIT](https://opensource.org/licenses/MIT)
 
