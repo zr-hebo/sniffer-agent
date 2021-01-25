@@ -91,8 +91,11 @@ apt-get install libpcap-dev
 
 #### 9. 风险提示
 1.sniffer-agent使用了pacp抓包，根据pacp抓包原理，在IO较高的时候有一定的概率丢包；
+
 2.sniffer-agent提供了Prepare语句的支持，但是如果sniffer-agent在prepare语句初始化之后启动，就无法抓取prepare语句；
+
 3.目前在 MySQL5.5-5.7上测试可用，MySQL8上会出现一些莫名其妙的问题；
+
 4.目前为止也没有使用 go mod进行包管理，因为一些原因，依赖的一些包在国内没法直接下载进来，因此把这些包保存在 vendor目录，方便编译；
 
 ##### License [MIT](https://opensource.org/licenses/MIT)
