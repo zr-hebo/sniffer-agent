@@ -158,8 +158,8 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 
 		ms.expectReceiveSize = extractMysqlPayloadSize(bytes[:4])
 		// ignore too big mysql packet
-		if ms.expectReceiveSize >= MaxMysqlPacketLen {
-			log.Infof("expect receive size is bigger than max deal size: %d", MaxMysqlPacketLen)
+		if ms.expectReceiveSize >= MaxMySQLPacketLen {
+			log.Infof("expect receive size is bigger than max deal size: %d", MaxMySQLPacketLen)
 			return
 		}
 
@@ -185,7 +185,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 
 	} else {
 		// ignore too big mysql packet
-		if ms.expectReceiveSize >= MaxMysqlPacketLen {
+		if ms.expectReceiveSize >= MaxMySQLPacketLen {
 			return
 		}
 

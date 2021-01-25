@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
+	"github.com/zr-hebo/sniffer-agent/session-dealer/mysql"
 	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/capture"
-	"github.com/zr-hebo/sniffer-agent/exporter"
 	"github.com/zr-hebo/sniffer-agent/communicator"
-	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
+	"github.com/zr-hebo/sniffer-agent/exporter"
 )
 
 var (
@@ -39,8 +40,7 @@ func initLog()  {
 
 func main()  {
 	flag.Parse()
-	initLog()
-	sd.CheckParams()
+	prepareEnv()
 
 	go communicator.Server()
 	mainServer()
@@ -60,4 +60,10 @@ func mainServer()  {
 
 	log.Errorf("cannot get network package from %s", capture.DeviceName)
 	os.Exit(1)
+}
+
+func prepareEnv()  {
+	initLog()
+	sd.CheckParams()
+	mysql.PrepareEnv()
 }
