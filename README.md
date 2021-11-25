@@ -56,7 +56,10 @@ apt-get install libpcap-dev
 ```
 go env -w GO111MODULE=off
 ```
-3.执行编译命令 go build
+3.执行编译命令
+```
+go build
+```
 
 ### 6. Demo
 
