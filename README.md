@@ -52,7 +52,11 @@ Ubuntu:
 ```
 apt-get install libpcap-dev
 ```
-2.执行编译命令 go build
+2.关闭 GO111MODULE状态
+```
+go env -w GO111MODULE=off
+```
+3.执行编译命令 go build
 
 ### 6. Demo
 
