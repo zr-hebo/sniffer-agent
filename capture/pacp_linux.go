@@ -2,6 +2,15 @@
 
 package capture
 
+import (
+	"fmt"
+
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/pcapgo"
+	"golang.org/x/net/bpf"
+)
+
 func initEthernetHandlerFromPacp() (handler PcapHandler) {
 	pcapgoHandler, err := pcapgo.NewEthernetHandle(DeviceName)
 	if err != nil {
