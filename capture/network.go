@@ -10,13 +10,9 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
-	"github.com/zr-hebo/sniffer-agent/communicator"
-	"golang.org/x/net/bpf"
-
-	"github.com/google/gopacket/pcapgo"
 	pp "github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
+	"github.com/zr-hebo/sniffer-agent/communicator"
 	"github.com/zr-hebo/sniffer-agent/model"
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 )
@@ -40,6 +36,10 @@ type networkCard struct {
 	receiver   chan model.QueryPiece
 }
 
+type PcapHandler interface {
+	ZeroCopyReadPacketData() (data []byte, ci gopacket.CaptureInfo, err error)
+}
+
 func NewNetworkCard() (nc *networkCard) {
 	// init device
 	return &networkCard{
@@ -47,54 +47,6 @@ func NewNetworkCard() (nc *networkCard) {
 		listenPort: snifferPort,
 		receiver:   make(chan model.QueryPiece, 100),
 	}
-}
-
-func initEthernetHandlerFromPacpgo() (handler *pcapgo.EthernetHandle) {
-	handler, err := pcapgo.NewEthernetHandle(DeviceName)
-	if err != nil {
-		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
-	}
-
-	// set BPFFilter
-	pcapBPF, err := pcap.CompileBPFFilter(
-		layers.LinkTypeEthernet, 65535, fmt.Sprintf("tcp and (port %d)", snifferPort))
-	if err != nil {
-		panic(err.Error())
-	}
-	bpfIns := []bpf.RawInstruction{}
-	for _, ins := range pcapBPF {
-		bpfIn := bpf.RawInstruction{
-			Op: ins.Code,
-			Jt: ins.Jt,
-			Jf: ins.Jf,
-			K:  ins.K,
-		}
-		bpfIns = append(bpfIns, bpfIn)
-	}
-
-	err = handler.SetBPF(bpfIns)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	_ = handler.SetCaptureLength(65536)
-
-	return
-}
-
-// in online use, we found a strange bug: pcap cost 100% core CPU and memory increase along
-func initEthernetHandlerFromPacp() (handler *pcap.Handle) {
-	handler, err := pcap.OpenLive(DeviceName, 65536, false, pcap.BlockForever)
-	if err != nil {
-		panic(fmt.Sprintf("cannot open network interface %s <-- %s", DeviceName, err.Error()))
-	}
-
-	err = handler.SetBPFFilter(fmt.Sprintf("tcp and (port %d)", snifferPort))
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return
 }
 
 func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
@@ -106,7 +58,7 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 func (nc *networkCard) listenNormal() {
 	go func() {
 		aliveCounter := 0
-		handler := initEthernetHandlerFromPacpgo()
+		handler := initEthernetHandlerFromPacp()
 
 		for {
 			var data []byte
@@ -244,7 +196,7 @@ func readFromServerPackage(
 	}
 
 	tcpPayload := tcpPkt.Payload
-	if (len(tcpPayload) < 1) {
+	if len(tcpPayload) < 1 {
 		return
 	}
 
@@ -280,7 +232,7 @@ func readToServerPackage(
 	}
 
 	tcpPayload := tcpPkt.Payload
-	if (len(tcpPayload) < 1) {
+	if len(tcpPayload) < 1 {
 		return
 	}
 
