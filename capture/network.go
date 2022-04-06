@@ -165,7 +165,7 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.He
 		}
 
 		// deal mysql server response
-		err = readToServerPackage(clientIP, clientPort, &srcIP, srcPort, &dstIP, tcpPkt, nc.receiver)
+		err = readToServerPackage(clientIP, clientPort, &dstIP, tcpPkt, nc.receiver)
 		if err != nil {
 			return
 		}
@@ -182,7 +182,7 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.He
 }
 
 func readFromServerPackage(
-	srcIP *string, srcPort int, tcpPkt *layers.TCP) (err error) {
+	clientIP *string, clientPort int, tcpPkt *layers.TCP) (err error) {
 	defer func() {
 		if err != nil {
 			log.Error("read Mysql package send from mysql server to client failed <-- %s", err.Error())
@@ -190,7 +190,7 @@ func readFromServerPackage(
 	}()
 
 	if tcpPkt.FIN {
-		sessionKey := spliceSessionKey(srcIP, srcPort)
+		sessionKey := spliceSessionKey(clientIP, clientPort)
 		session := sessionPool[*sessionKey]
 		if session != nil {
 			session.Close()
@@ -204,7 +204,7 @@ func readFromServerPackage(
 		return
 	}
 
-	sessionKey := spliceSessionKey(srcIP, srcPort)
+	sessionKey := spliceSessionKey(clientIP, clientPort)
 	session := sessionPool[*sessionKey]
 	if session != nil {
 		pkt := model.NewTCPPacket(tcpPayload, int64(tcpPkt.Ack), false)
@@ -215,7 +215,7 @@ func readFromServerPackage(
 }
 
 func readToServerPackage(
-	clientIP *string, clientPort int, srcIP *string, srcPort int, destIP *string, tcpPkt *layers.TCP,
+	clientIP *string, clientPort int, destIP *string, tcpPkt *layers.TCP,
 	receiver chan model.QueryPiece) (err error) {
 	defer func() {
 		if err != nil {
@@ -225,7 +225,7 @@ func readToServerPackage(
 
 	// when client try close connection remove session from session pool
 	if tcpPkt.FIN {
-		sessionKey := spliceSessionKey(srcIP, srcPort)
+		sessionKey := spliceSessionKey(clientIP, clientPort)
 		session := sessionPool[*sessionKey]
 		if session != nil {
 			session.Close()
@@ -240,10 +240,10 @@ func readToServerPackage(
 		return
 	}
 
-	sessionKey := spliceSessionKey(srcIP, srcPort)
+	sessionKey := spliceSessionKey(clientIP, clientPort)
 	session := sessionPool[*sessionKey]
 	if session == nil {
-		session = sd.NewSession(sessionKey, clientIP, clientPort, srcIP, srcPort, destIP, snifferPort, receiver)
+		session = sd.NewSession(sessionKey, clientIP, clientPort, destIP, snifferPort, receiver)
 		sessionPool[*sessionKey] = session
 	}
 
