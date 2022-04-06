@@ -158,10 +158,14 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.He
 			clientIPContent := authHeader.SourceAddress.String()
 			clientIP = &clientIPContent
 			clientPort = int(authHeader.SourcePort)
+
+		} else {
+			clientIP = &srcIP
+			clientPort = srcPort
 		}
 
 		// deal mysql server response
-		err = readToServerPackage(clientIP, clientPort, &srcIP, srcPort, tcpPkt, nc.receiver)
+		err = readToServerPackage(clientIP, clientPort, &srcIP, srcPort, &dstIP, tcpPkt, nc.receiver)
 		if err != nil {
 			return
 		}
@@ -211,7 +215,7 @@ func readFromServerPackage(
 }
 
 func readToServerPackage(
-	clientIP *string, clientPort int, srcIP *string, srcPort int, tcpPkt *layers.TCP,
+	clientIP *string, clientPort int, srcIP *string, srcPort int, destIP *string, tcpPkt *layers.TCP,
 	receiver chan model.QueryPiece) (err error) {
 	defer func() {
 		if err != nil {
@@ -239,7 +243,7 @@ func readToServerPackage(
 	sessionKey := spliceSessionKey(srcIP, srcPort)
 	session := sessionPool[*sessionKey]
 	if session == nil {
-		session = sd.NewSession(sessionKey, clientIP, clientPort, srcIP, srcPort, localIPAddr, snifferPort, receiver)
+		session = sd.NewSession(sessionKey, clientIP, clientPort, srcIP, srcPort, destIP, snifferPort, receiver)
 		sessionPool[*sessionKey] = session
 	}
 
