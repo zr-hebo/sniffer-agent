@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Shopify/sarama"
-	log "github.com/sirupsen/logrus"
+	log "github.com/golang/glog"
 	"github.com/zr-hebo/sniffer-agent/model"
 )
 

@@ -2,9 +2,10 @@ package communicator
 
 import (
 	"flag"
-	"github.com/gorilla/mux"
 	_ "net/http/pprof"
 	"sync"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -30,9 +31,6 @@ func init() {
 	flag.IntVar(&communicatePort, "communicate_port", 8088, "http server port. Default is 8088")
 	flag.Float64Var(&catpurePacketRateVal, CAPTURE_PACKET_RATE, 1.0, "capture packet rate. Default is 1.0")
 
-	if err := catpurePacketRate.setVal(catpurePacketRateVal); err != nil {
-		panic(err.Error())
-	}
 	configMap = make(map[string]configItem)
 	regsiterConfig()
 }

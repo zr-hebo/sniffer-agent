@@ -1,10 +1,11 @@
 package capture
 
 import (
-	log "github.com/sirupsen/logrus"
-	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 	"math/rand"
 	"time"
+
+	log "github.com/golang/glog"
+	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
 )
 
 var (
@@ -21,7 +22,10 @@ func init() {
 	}
 
 	localIPAddr = &ipAddr
-	log.Infof("parsed local ip address:%s", *localIPAddr)
 
 	rand.Seed(time.Now().UnixNano())
+}
+
+func ShowLocalIP() {
+	log.Infof("parsed local ip address:%s", *localIPAddr)
 }

@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
-	"fmt"
 	"math/rand"
 	"time"
 
+	log "github.com/golang/glog"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	pp "github.com/pires/go-proxyproto"
-	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/communicator"
 	"github.com/zr-hebo/sniffer-agent/model"
 	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
@@ -57,14 +56,34 @@ func (nc *networkCard) Listen() (receiver chan model.QueryPiece) {
 // Listen get a connection.
 func (nc *networkCard) listenNormal() {
 	go func() {
+		dealTCPPacket := func(srcIP, dstIP string, tcpPkt *layers.TCP, capturePacketRate float64) {
+			// send FIN tcp packet to avoid not complete session cannot be released
+			// deal FIN packet
+			if tcpPkt.FIN {
+				nc.parseTCPPackage(srcIP, dstIP, tcpPkt, nil)
+				return
+			}
+
+			// deal auth packet
+			if sd.IsAuthPacket(tcpPkt.Payload) {
+				authHeader, _ := pp.Read(bufio.NewReader(bytes.NewReader(tcpPkt.Payload)))
+				nc.parseTCPPackage(srcIP, dstIP, tcpPkt, authHeader)
+				return
+			}
+
+			if 0 < capturePacketRate && capturePacketRate < 1.0 {
+				// fall into throw range
+				rn := rand.Float64()
+				if rn > capturePacketRate {
+					return
+				}
+			}
+
+			nc.parseTCPPackage(srcIP, dstIP, tcpPkt, nil)
+		}
+
 		aliveCounter := 0
-		handler := initEthernetHandlerFromPacp()
-
-		for {
-			var data []byte
-			var ci gopacket.CaptureInfo
-			var err error
-
+		dealTCPIPPacket := func(tcpIPPkt *TCPIPPair) {
 			// capture packets according to a certain probability
 			capturePacketRate := communicator.GetTCPCapturePacketRate()
 			if capturePacketRate <= 0 {
@@ -74,53 +93,19 @@ func (nc *networkCard) listenNormal() {
 					aliveCounter = 0
 					nc.receiver <- model.NewBaseQueryPiece(localIPAddr, nc.listenPort, capturePacketRate)
 				}
-				continue
+
+			} else {
+				dealTCPPacket(tcpIPPkt.srcIP, tcpIPPkt.dstIP, tcpIPPkt.tcpPkt, capturePacketRate)
 			}
-
-			data, ci, err = handler.ZeroCopyReadPacketData()
-			if err != nil {
-				log.Error(err.Error())
-				time.Sleep(time.Second * 3)
-				continue
-			}
-
-			packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
-			// packet := gopacket.NewPacket(data, handler.LinkType(), gopacket.NoCopy)
-			m := packet.Metadata()
-			m.CaptureInfo = ci
-
-			tcpPkt := packet.TransportLayer().(*layers.TCP)
-			// send FIN tcp packet to avoid not complete session cannot be released
-			// deal FIN packet
-			if tcpPkt.FIN {
-				nc.parseTCPPackage(packet, nil)
-				continue
-			}
-
-			// deal auth packet
-			if sd.IsAuthPacket(tcpPkt.Payload) {
-				authHeader, _ := pp.Read(bufio.NewReader(bytes.NewReader(tcpPkt.Payload)))
-				nc.parseTCPPackage(packet, authHeader)
-				continue
-			}
-
-			if 0 < capturePacketRate && capturePacketRate < 1.0 {
-				// fall into throw range
-				rn := rand.Float64()
-				if rn > capturePacketRate {
-					continue
-				}
-			}
-
-			aliveCounter = 0
-			nc.parseTCPPackage(packet, nil)
 		}
+
+		dealEachTCPIPPacket(dealTCPIPPacket)
 	}()
 
 	return
 }
 
-func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.Header) {
+func (nc *networkCard) parseTCPPackage(srcIP, dstIP string, tcpPkt *layers.TCP, authHeader *pp.Header) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -128,25 +113,10 @@ func (nc *networkCard) parseTCPPackage(packet gopacket.Packet, authHeader *pp.He
 		}
 	}()
 
-	tcpPkt := packet.TransportLayer().(*layers.TCP)
 	if tcpPkt.SYN || tcpPkt.RST {
 		return
 	}
 
-	ipLayer := packet.Layer(layers.LayerTypeIPv4)
-	if ipLayer == nil {
-		err = fmt.Errorf("no ip layer found in package")
-		return
-	}
-
-	ipInfo, ok := ipLayer.(*layers.IPv4)
-	if !ok {
-		err = fmt.Errorf("parsed no ip address")
-		return
-	}
-
-	srcIP := ipInfo.SrcIP.String()
-	dstIP := ipInfo.DstIP.String()
 	srcPort := int(tcpPkt.SrcPort)
 	dstPort := int(tcpPkt.DstPort)
 
@@ -231,7 +201,7 @@ func readToServerPackage(
 			session.Close()
 			delete(sessionPool, *sessionKey)
 		}
-		log.Debugf("close connection from %s", *sessionKey)
+		log.Infof("close connection from %s", *sessionKey)
 		return
 	}
 

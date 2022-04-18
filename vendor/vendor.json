@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "yUc84k7cfnRi9AlPFuRo77Y18Og=",
+			"path": "github.com/golang/glog",
+			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
+			"revisionTime": "2016-01-25T20:49:56Z"
+		},
+		{
+			"checksumSHA1": "X5ivYXvxs8wLkNqaPMBcuzNKEv4=",
+			"path": "github.com/google/gopacket",
+			"revision": "3eaba08943250fd212520e5cff00ed808b8fc60a",
+			"revisionTime": "2021-04-29T15:22:48Z"
+		}
+	],
+	"rootPath": "github.com/zr-hebo/sniffer-agent"
+}

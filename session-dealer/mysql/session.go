@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/golang/glog"
 	"github.com/pingcap/tidb/util/hack"
-	log "github.com/sirupsen/logrus"
 	"github.com/zr-hebo/sniffer-agent/communicator"
 	"github.com/zr-hebo/sniffer-agent/model"
 )
@@ -171,7 +171,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		ms.endSeqID = seqID
 
 		if int64(ms.expectReceiveSize) < int64(len(contents)) {
-			log.Debug("receive invalid mysql packet")
+			log.Warning("receive invalid mysql packet")
 			return
 		}
 
@@ -186,13 +186,13 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		}
 
 		if ms.beginSeqID == -1 {
-			log.Debug("cover range is empty")
+			log.Info("cover range is empty")
 			return
 		}
 
 		if seqID < ms.beginSeqID {
 			// out date packet
-			log.Debugf("in session %s get outdate package with Seq:%d, beginSeq:%d",
+			log.Infof("in session %s get outdate package with Seq:%d, beginSeq:%d",
 				*ms.connectionID, seqID, ms.beginSeqID)
 			return
 		}
@@ -200,7 +200,7 @@ func (ms *MysqlSession) readFromClient(seqID int64, bytes []byte) {
 		seqOffset := seqID - ms.beginSeqID
 		if seqOffset+contentSize > int64(len(ms.cachedStmtBytes)) {
 			// not in a normal mysql packet
-			log.Debugf("receive an unexpect packet")
+			log.Info("receive an unexpect packet")
 			ms.clear()
 			return
 		}
@@ -225,12 +225,12 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 	}
 
 	if !ms.checkFinish() {
-		log.Debugf("receive a not complete cover")
+		log.Warning("receive a not complete cover")
 		return
 	}
 
 	if len(ms.cachedStmtBytes) > maxSQLLen {
-		log.Warn("sql in cache is too long, ignore it")
+		log.Warning("sql in cache is too long, ignore it")
 		return
 	}
 
@@ -275,7 +275,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 			querySQL := hack.String(querySQLInBytes)
 			mqp.QuerySQL = &querySQL
 			ms.cachedPrepareStmt[ms.prepareInfo.prepareStmtID] = querySQLInBytes
-			log.Debugf("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
+			log.Infof("prepare statement %s, get id:%d", querySQL, ms.prepareInfo.prepareStmtID)
 
 		case ComStmtExecute:
 			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
@@ -293,7 +293,7 @@ func (ms *MysqlSession) GenerateQueryPiece() (qp model.QueryPiece) {
 		case ComStmtClose:
 			prepareStmtID := bytesToInt(ms.cachedStmtBytes[1:5])
 			delete(ms.cachedPrepareStmt, prepareStmtID)
-			log.Debugf("remove prepare statement:%d", prepareStmtID)
+			log.Infof("remove prepare statement:%d", prepareStmtID)
 
 		default:
 			return

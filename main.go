@@ -2,43 +2,28 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
-	"github.com/zr-hebo/sniffer-agent/session-dealer/mysql"
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/golang/glog"
 	"github.com/zr-hebo/sniffer-agent/capture"
 	"github.com/zr-hebo/sniffer-agent/communicator"
 	"github.com/zr-hebo/sniffer-agent/exporter"
+	sd "github.com/zr-hebo/sniffer-agent/session-dealer"
+	"github.com/zr-hebo/sniffer-agent/session-dealer/mysql"
 )
 
 var (
 	logLevel string
 )
 
-func init()  {
+func init() {
 	flag.StringVar(&logLevel, "log_level", "warn", "log level. Default is info")
 }
 
-func initLog()  {
-	log.SetFormatter(&log.TextFormatter{})
-	log.SetOutput(os.Stdout)
-	switch logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "info":
-		log.SetLevel(log.InfoLevel)
-	case "warn":
-		log.SetLevel(log.WarnLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	default:
-		panic(fmt.Sprintf("cannot set log level:%s, there have four types can set: debug, info, warn, error", logLevel))
-	}
+func initLog() {
 }
 
-func main()  {
+func main() {
 	flag.Parse()
 	prepareEnv()
 
@@ -46,7 +31,7 @@ func main()  {
 	mainServer()
 }
 
-func mainServer()  {
+func mainServer() {
 	ept := exporter.NewExporter()
 	networkCard := capture.NewNetworkCard()
 	log.Info("begin listen")
@@ -62,8 +47,9 @@ func mainServer()  {
 	os.Exit(1)
 }
 
-func prepareEnv()  {
+func prepareEnv() {
 	initLog()
 	sd.CheckParams()
 	mysql.PrepareEnv()
+	capture.ShowLocalIP()
 }
