@@ -55,7 +55,7 @@ apt-get install libpcap-dev
 
 Windows（Windows系统的抓包效率和准确性都较低，建议别在生产使用）:
 ```
-安装 Npcap, 下载地址：<https://npcap.com/>
+安装 Npcap, 下载地址：https://npcap.com/
 ```
 
 
