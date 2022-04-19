@@ -52,6 +52,10 @@ Ubuntu:
 ```
 apt-get install libpcap-dev
 ```
+
+Windows（Windows系统的抓包效率和准确性都较低，建议别在生产使用）:
+安装 Npcap, 下载地址：<https://npcap.com/>
+
 2.关闭 GO111MODULE状态
 ```
 go env -w GO111MODULE=off
