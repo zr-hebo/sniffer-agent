@@ -121,10 +121,14 @@ func parseLengthEncodedInt(b []byte) (num uint64, isNull bool, n int) {
 	return
 }
 
-func extractMysqlPayloadSize(header []byte) int {
+func parseInt2(header []byte) int {
+	return int(uint32(header[0]) | uint32(header[1])<<8)
+}
+
+func parseInt3(header []byte) int {
 	return int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
 }
 
-func bytesToInt(contents []byte) int {
+func parseInt4(contents []byte) int {
 	return int(uint32(contents[0]) | uint32(contents[1])<<8 | uint32(contents[2])<<16 | uint32(contents[3])<<24)
 }
